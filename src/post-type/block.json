@@ -1,0 +1,61 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 2,
+	"name": "query-filter/post-type",
+	"version": "0.1.0",
+	"title": "Post Type Filter",
+	"category": "theme",
+	"icon": "filter",
+	"description": "Allows users to filter by post type when placed wihin a query loop block",
+	"ancestor": [ "core/query" ],
+	"usesContext": [ "queryId", "query" ],
+	"supports": {
+		"html": false,
+		"className": true,
+		"customClassName": true,
+		"color": {
+			"background": true,
+			"text": true
+		},
+		"typography": {
+			"fontSize": true,
+			"textAlign": true,
+			"lineHeight": true,
+			"__experimentalFontFamily": true,
+			"__experimentalFontWeight": true,
+			"__experimentalFontStyle": true,
+			"__experimentalTextTransform": true,
+			"__experimentalTextDecoration": true,
+			"__experimentalLetterSpacing": true,
+			"__experimentalDefaultControls": {
+				"fontSize": true
+			}
+		},
+		"spacing": {
+			"margin": true,
+			"padding": true,
+			"blockGap": true
+		},
+		"interactivity": {
+			"clientNavigation": true
+		}
+	},
+	"attributes": {
+		"emptyLabel": {
+			"type": "string",
+			"default": ""
+		},
+		"label": {
+			"type": "string"
+		},
+		"showLabel": {
+			"type": "boolean",
+			"default": true
+		}
+	},
+	"textdomain": "query-filter",
+	"editorScript": "file:./index.js",
+	"viewScriptModule": "query-filter-taxonomy-view-script-module",
+	"style": "query-filter-view",
+	"render": "file:./render.php"
+}
