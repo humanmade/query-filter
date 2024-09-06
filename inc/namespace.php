@@ -90,6 +90,7 @@ function pre_get_posts_transpose_query_vars( WP_Query $query ) : void {
 	foreach ( $_GET as $key => $value ) {
 		if ( strpos( $key, "query-{$query_id}-" ) === 0 ) {
 			$key = str_replace( "query-{$query_id}-", '', $key );
+			$value = sanitize_text_field( urldecode( wp_unslash( $value ) ) );
 
 			// Handle taxonomies specifically.
 			if ( get_taxonomy( $key ) ) {
@@ -109,7 +110,7 @@ function pre_get_posts_transpose_query_vars( WP_Query $query ) : void {
 
 				$query->set(
 					$key,
-					sanitize_text_field( urldecode( wp_unslash( $value ) ) )
+					$value
 				);
 			}
 		}
