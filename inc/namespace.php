@@ -84,6 +84,7 @@ function pre_get_posts_transpose_query_vars( WP_Query $query ) : void {
 
 	$query_id = $query->get( 'query_id' );
 	$tax_query = [];
+	$valid_keys = array_keys( $query->query_vars );
 
 	// Map get params to this query.
 	foreach ( $_GET as $key => $value ) {
@@ -100,6 +101,12 @@ function pre_get_posts_transpose_query_vars( WP_Query $query ) : void {
 				];
 			} else {
 				// Other options should map directly to query vars.
+				$key = sanitize_key( $key );
+
+				if ( ! in_array( $key, $valid_keys, true ) ) {
+					continue;
+				}
+
 				$query->set(
 					$key,
 					sanitize_text_field( urldecode( wp_unslash( $value ) ) )
