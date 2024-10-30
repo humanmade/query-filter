@@ -162,7 +162,7 @@ function render_block_search( string $block_content, array $block, \WP_Block $in
 	$query_var = sprintf( 'query-%d-s', $instance->context['queryId'] ?? 0 );
 
 	wp_interactivity_state( 'query-filter', [
-		'searchValue' => sanitize_text_field( wp_unslash( $_GET[ $query_var ] ?? '' ) ),
+		'searchValue' => strip_tags( wp_unslash( $_GET[ $query_var ] ?? '' ) ),
 	] );
 
 	$block_content = new WP_HTML_Tag_Processor( $block_content );
