@@ -14,7 +14,7 @@ export default function Edit( { attributes, setAttributes } ) {
 	const taxonomies = useSelect(
 		( select ) => {
 			const results = (
-				select( 'core' ).getTaxonomies( { number: 100 } ) || []
+				select( 'core' ).getTaxonomies( { per_page: 100 } ) || []
 			).filter( ( taxonomy ) => taxonomy.visibility.public );
 
 			if ( results && results.length > 0 && ! taxonomy ) {
