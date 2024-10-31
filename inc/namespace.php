@@ -161,6 +161,7 @@ function render_block_search( string $block_content, array $block, \WP_Block $in
 
 	$query_var = sprintf( 'query-%d-s', $instance->context['queryId'] ?? 0 );
 
+	// Note sanitize_text_field trims whitespace from start/end of string causing unexpected behaviour.
 	$value = wp_unslash( $_GET[ $query_var ] ?? '' );
 	$value = urldecode( $value );
 	$value = wp_check_invalid_utf8( $value );
