@@ -161,8 +161,15 @@ function render_block_search( string $block_content, array $block, \WP_Block $in
 
 	$query_var = sprintf( 'query-%d-s', $instance->context['queryId'] ?? 0 );
 
+	// Note sanitize_text_field trims whitespace from start/end of string causing unexpected behaviour.
+	$value = wp_unslash( $_GET[ $query_var ] ?? '' );
+	$value = urldecode( $value );
+	$value = wp_check_invalid_utf8( $value );
+	$value = wp_pre_kses_less_than( $value );
+	$value = strip_tags( $value );
+
 	wp_interactivity_state( 'query-filter', [
-		'searchValue' => sanitize_text_field( wp_unslash( $_GET[ $query_var ] ?? '' ) ),
+		'searchValue' => $value,
 	] );
 
 	$block_content = new WP_HTML_Tag_Processor( $block_content );
@@ -174,7 +181,7 @@ function render_block_search( string $block_content, array $block, \WP_Block $in
 	$block_content->next_tag( [ 'tag_name' => 'input', 'class_name' => 'wp-block-search__input' ] );
 	$block_content->set_attribute( 'name', $query_var );
 	$block_content->set_attribute( 'inputmode', 'search' );
-	$block_content->set_attribute( 'value', sanitize_text_field( wp_unslash( $_GET[ $query_var ] ?? '' ) ) );
+	$block_content->set_attribute( 'value', $value );
 	$block_content->set_attribute( 'data-wp-bind--value', 'state.searchValue' );
 	$block_content->set_attribute( 'data-wp-on--input', 'actions.search' );
 	$block_content->remove_attribute( 'required' );
