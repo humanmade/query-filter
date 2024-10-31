@@ -161,8 +161,14 @@ function render_block_search( string $block_content, array $block, \WP_Block $in
 
 	$query_var = sprintf( 'query-%d-s', $instance->context['queryId'] ?? 0 );
 
+	$value = wp_unslash( $_GET[ $query_var ] ?? '' );
+	$value = urldecode( $value );
+	$value = wp_check_invalid_utf8( $value );
+	$value = wp_pre_kses_less_than( $value );
+	$value = strip_tags( $value );
+
 	wp_interactivity_state( 'query-filter', [
-		'searchValue' => sanitize_text_field( wp_unslash( $_GET[ $query_var ] ?? '' ) ),
+		'searchValue' => $value,
 	] );
 
 	$block_content = new WP_HTML_Tag_Processor( $block_content );
