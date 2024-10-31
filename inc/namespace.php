@@ -180,7 +180,7 @@ function render_block_search( string $block_content, array $block, \WP_Block $in
 	$block_content->next_tag( [ 'tag_name' => 'input', 'class_name' => 'wp-block-search__input' ] );
 	$block_content->set_attribute( 'name', $query_var );
 	$block_content->set_attribute( 'inputmode', 'search' );
-	$block_content->set_attribute( 'value', sanitize_text_field( wp_unslash( $_GET[ $query_var ] ?? '' ) ) );
+	$block_content->set_attribute( 'value', $value );
 	$block_content->set_attribute( 'data-wp-bind--value', 'state.searchValue' );
 	$block_content->set_attribute( 'data-wp-on--input', 'actions.search' );
 	$block_content->remove_attribute( 'required' );
