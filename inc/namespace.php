@@ -155,11 +155,12 @@ function filter_block_type_metadata( array $metadata ) : array {
  * @return string The block content.
  */
 function render_block_search( string $block_content, array $block, \WP_Block $instance ) : string {
-	if ( empty( $instance->context['query'] ) || $instance->context['query']['inherit'] ) {
-		return $block_content;
-	}
 
-	$query_var = sprintf( 'query-%d-s', $instance->context['queryId'] ?? 0 );
+	$query_var = empty( $instance->context['query']['inherit'] )
+		? sprintf( 'query-%d-s', $instance->context['queryId'] ?? 0 )
+		: 's';
+
+	$action = add_query_arg( [ $query_var => false ] );
 
 	// Note sanitize_text_field trims whitespace from start/end of string causing unexpected behaviour.
 	$value = wp_unslash( $_GET[ $query_var ] ?? '' );
@@ -174,7 +175,7 @@ function render_block_search( string $block_content, array $block, \WP_Block $in
 
 	$block_content = new WP_HTML_Tag_Processor( $block_content );
 	$block_content->next_tag( [ 'tag_name' => 'form' ] );
-	$block_content->set_attribute( 'action', add_query_arg( [ $query_var => false ] ) );
+	$block_content->set_attribute( 'action', $action );
 	$block_content->set_attribute( 'data-wp-interactive', 'query-filter' );
 	$block_content->set_attribute( 'data-wp-on--submit', 'actions.search' );
 	$block_content->set_attribute( 'data-wp-context', '{searchValue:""}' );
@@ -192,16 +193,17 @@ function render_block_search( string $block_content, array $block, \WP_Block $in
 /**
  * Add data attributes to the query block to describe the block query.
  *
- * @param string $block_content Default query content.
- * @param array  $block Parsed block.
+ * @param string    $block_content Default query content.
+ * @param array     $block         Parsed block.
+ * @param \WP_Block $instance      The block instance.
  * @return string
  */
-function render_block_query( $block_content, $block ) {
+function render_block_query( $block_content, $block, \WP_Block $instance ) {
 	$block_content = new WP_HTML_Tag_Processor( $block_content );
 	$block_content->next_tag();
 
-	// Allow region updates on interaction.
-	$block_content->set_attribute( 'data-wp-router-region', 'query-filter' );
+	// Always allow region updates on interactivity.
+	$block_content->set_attribute( 'data-wp-router-region', 'query-' . ( $instance->context['queryId'] ?? 0 ) );
 
 	return (string) $block_content;
 }
