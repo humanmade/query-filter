@@ -155,6 +155,9 @@ function filter_block_type_metadata( array $metadata ) : array {
  * @return string The block content.
  */
 function render_block_search( string $block_content, array $block, \WP_Block $instance ) : string {
+	if ( empty( $instance->context['query'] ) ) {
+		return $block_content;
+	}
 
 	$query_var = empty( $instance->context['query']['inherit'] )
 		? sprintf( 'query-%d-s', $instance->context['queryId'] ?? 0 )
