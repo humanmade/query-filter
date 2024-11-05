@@ -27,7 +27,7 @@ function bootstrap() : void {
 	add_filter( 'render_block_core/search', __NAMESPACE__ . '\\render_block_search', 10, 3 );
 
 	// Query.
-	add_filter( 'render_block_core/query', __NAMESPACE__ . '\\render_block_query', 10, 2 );
+	add_filter( 'render_block_core/query', __NAMESPACE__ . '\\render_block_query', 10, 3 );
 }
 
 /**
@@ -78,18 +78,29 @@ function filter_query_loop_block_query_vars( array $query, \WP_Block $block, int
 function pre_get_posts_transpose_query_vars( WP_Query $query ) : void {
 	$query_id = $query->get( 'query_id', null );
 
-	if ( is_null( $query_id ) ) {
+	if ( ! $query->is_main_query() && is_null( $query_id ) ) {
 		return;
 	}
 
-	$query_id = $query->get( 'query_id' );
+	$prefix = $query->is_main_query() ? 'query-' : "query-{$query_id}-";
 	$tax_query = [];
-	$valid_keys = array_keys( $query->query_vars );
+	$valid_keys = [
+		'post_type' => $query->is_search() ? 'any' : 'post',
+		's' => '',
+	];
+
+	// Preserve valid params for later retrieval.
+	foreach ( $valid_keys as $key => $default ) {
+		$query->set(
+			"query-filter-$key",
+			$query->get( $key, $default )
+		);
+	}
 
 	// Map get params to this query.
 	foreach ( $_GET as $key => $value ) {
-		if ( strpos( $key, "query-{$query_id}-" ) === 0 ) {
-			$key = str_replace( "query-{$query_id}-", '', $key );
+		if ( strpos( $key, $prefix ) === 0 ) {
+			$key = str_replace( $prefix, '', $key );
 			$value = sanitize_text_field( urldecode( wp_unslash( $value ) ) );
 
 			// Handle taxonomies specifically.
@@ -104,7 +115,7 @@ function pre_get_posts_transpose_query_vars( WP_Query $query ) : void {
 				// Other options should map directly to query vars.
 				$key = sanitize_key( $key );
 
-				if ( ! in_array( $key, $valid_keys, true ) ) {
+				if ( ! in_array( $key, array_keys( $valid_keys ), true ) ) {
 					continue;
 				}
 
@@ -159,11 +170,13 @@ function render_block_search( string $block_content, array $block, \WP_Block $in
 		return $block_content;
 	}
 
+	wp_enqueue_script_module( 'query-filter-taxonomy-view-script-module' );
+
 	$query_var = empty( $instance->context['query']['inherit'] )
 		? sprintf( 'query-%d-s', $instance->context['queryId'] ?? 0 )
 		: 's';
 
-	$action = add_query_arg( [ $query_var => false ] );
+	$action = str_replace( '/page/'. get_query_var( 'paged', 1 ), '', add_query_arg( [ $query_var => '' ] ) );
 
 	// Note sanitize_text_field trims whitespace from start/end of string causing unexpected behaviour.
 	$value = wp_unslash( $_GET[ $query_var ] ?? '' );
@@ -188,7 +201,6 @@ function render_block_search( string $block_content, array $block, \WP_Block $in
 	$block_content->set_attribute( 'value', $value );
 	$block_content->set_attribute( 'data-wp-bind--value', 'state.searchValue' );
 	$block_content->set_attribute( 'data-wp-on--input', 'actions.search' );
-	$block_content->remove_attribute( 'required' );
 
 	return (string) $block_content;
 }
@@ -198,15 +210,14 @@ function render_block_search( string $block_content, array $block, \WP_Block $in
  *
  * @param string    $block_content Default query content.
  * @param array     $block         Parsed block.
- * @param \WP_Block $instance      The block instance.
  * @return string
  */
-function render_block_query( $block_content, $block, \WP_Block $instance ) {
+function render_block_query( $block_content, $block ) {
 	$block_content = new WP_HTML_Tag_Processor( $block_content );
 	$block_content->next_tag();
 
-	// Always allow region updates on interactivity.
-	$block_content->set_attribute( 'data-wp-router-region', 'query-' . ( $instance->context['queryId'] ?? 0 ) );
+	// Always allow region updates on interactivity, use standard core region naming.
+	$block_content->set_attribute( 'data-wp-router-region', 'query-' . ( $block['attrs']['queryId'] ?? 0 ) );
 
 	return (string) $block_content;
 }
