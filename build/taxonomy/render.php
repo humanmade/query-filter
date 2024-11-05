@@ -5,10 +5,18 @@ if ( empty( $attributes['taxonomy'] ) ) {
 
 $id = 'query-filter-' . wp_generate_uuid4();
 
-$query_id = $block->context['queryId'] ?? 0;
-$query_var = sprintf( 'query-%d-%s', $query_id, $attributes['taxonomy'] );
-
 $taxonomy = get_taxonomy( $attributes['taxonomy'] );
+
+if ( $block->context['query']['inherit'] ) {
+	$query_var = sprintf( 'query-%s', $attributes['taxonomy'] );
+	$page_var = 'page';
+	$base_url = str_replace( '/page/' . get_query_var( 'paged' ), '', remove_query_arg( [ $query_var, $page_var ] ) );
+} else {
+	$query_id = $block->context['queryId'] ?? 0;
+	$query_var = sprintf( 'query-%d-%s', $query_id, $attributes['taxonomy'] );
+	$page_var = isset( $block->context['queryId'] ) ? 'query-' . $block->context['queryId'] . '-page' : 'query-page';
+	$base_url = remove_query_arg( [ $query_var, $page_var ] );
+}
 
 $terms = get_terms( [
 	'hide_empty' => true,
@@ -26,9 +34,9 @@ if ( is_wp_error( $terms ) || empty( $terms ) ) {
 		<?php echo esc_html( $attributes['label'] ?? $taxonomy->label ); ?>
 	</label>
 	<select class="wp-block-query-filter-post-type__select wp-block-query-filter__select" id="<?php echo esc_attr( $id ); ?>" data-wp-on--change="actions.navigate">
-		<option value="<?php echo esc_attr( remove_query_arg( [ $query_var, "query-{$query_id}-page" ] ) ) ?>"><?php echo esc_html( $attributes['emptyLabel'] ?: __( 'All', 'query-filter' ) ); ?></option>
+		<option value="<?php echo esc_attr( $base_url ) ?>"><?php echo esc_html( $attributes['emptyLabel'] ?: __( 'All', 'query-filter' ) ); ?></option>
 		<?php foreach ( $terms as $term ) : ?>
-			<option value="<?php echo esc_attr( add_query_arg( [ $query_var => $term->slug, "query-{$query_id}-page" => false ] ) ) ?>" <?php selected( $term->slug, wp_unslash( $_GET[ $query_var ] ?? '' ) ); ?>><?php echo esc_html( $term->name ); ?></option>
+			<option value="<?php echo esc_attr( add_query_arg( [ $query_var => $term->slug, $page_var => false ], $base_url ) ) ?>" <?php selected( $term->slug, wp_unslash( $_GET[ $query_var ] ?? '' ) ); ?>><?php echo esc_html( $term->name ); ?></option>
 		<?php endforeach; ?>
 	</select>
 </div>
