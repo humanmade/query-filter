@@ -7,15 +7,15 @@ $id = 'query-filter-' . wp_generate_uuid4();
 
 $taxonomy = get_taxonomy( $attributes['taxonomy'] );
 
-if ( $block->context['query']['inherit'] ) {
-	$query_var = sprintf( 'query-%s', $attributes['taxonomy'] );
-	$page_var = 'page';
-	$base_url = str_replace( '/page/' . get_query_var( 'paged' ), '', remove_query_arg( [ $query_var, $page_var ] ) );
-} else {
+if ( empty( $block->context['query']['inherit'] ) ) {
 	$query_id = $block->context['queryId'] ?? 0;
 	$query_var = sprintf( 'query-%d-%s', $query_id, $attributes['taxonomy'] );
 	$page_var = isset( $block->context['queryId'] ) ? 'query-' . $block->context['queryId'] . '-page' : 'query-page';
 	$base_url = remove_query_arg( [ $query_var, $page_var ] );
+} else {
+	$query_var = sprintf( 'query-%s', $attributes['taxonomy'] );
+	$page_var = 'page';
+	$base_url = str_replace( '/page/' . get_query_var( 'paged' ), '', remove_query_arg( [ $query_var, $page_var ] ) );
 }
 
 $terms = get_terms( [
