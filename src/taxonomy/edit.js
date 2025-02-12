@@ -15,7 +15,7 @@ export default function Edit( { attributes, setAttributes } ) {
 		( select ) => {
 			const results = (
 				select( 'core' ).getTaxonomies( { per_page: 100 } ) || []
-			).filter( ( taxonomy ) => taxonomy.visibility.public );
+			).filter( ( taxonomy ) => taxonomy.visibility.publicly_queryable );
 
 			if ( results && results.length > 0 && ! taxonomy ) {
 				setAttributes( {
