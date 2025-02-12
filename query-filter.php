@@ -4,7 +4,7 @@
  * Description:       Filter blocks for the query loop utilising the interactivity API.
  * Requires at least: 6.6
  * Requires PHP:      8.0
- * Version:           0.2.0
+ * Version:           0.2.1
  * Author:            Human Made Limited
  * License:           GPL-2.0-or-later
  * License URI:       https://www.gnu.org/licenses/gpl-2.0.html
