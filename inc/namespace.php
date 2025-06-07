@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Query filter main file.
  *
@@ -15,33 +16,32 @@ use WP_Query;
  *
  * @return void
  */
-function bootstrap() : void {
+function bootstrap(): void
+{
 	// General hooks.
-	add_filter( 'query_loop_block_query_vars', __NAMESPACE__ . '\\filter_query_loop_block_query_vars', 10, 3 );
-	add_action( 'pre_get_posts', __NAMESPACE__ . '\\pre_get_posts_transpose_query_vars' );
-	add_filter( 'block_type_metadata', __NAMESPACE__ . '\\filter_block_type_metadata', 10 );
-	add_action( 'init', __NAMESPACE__ . '\\register_blocks' );
-	add_action( 'enqueue_block_assets', __NAMESPACE__ . '\\action_wp_enqueue_scripts' );
+	add_filter('query_loop_block_query_vars', __NAMESPACE__ . '\\filter_query_loop_block_query_vars', 10, 3);
+	add_action('pre_get_posts', __NAMESPACE__ . '\\pre_get_posts_transpose_query_vars');
+	add_filter('block_type_metadata', __NAMESPACE__ . '\\filter_block_type_metadata', 10);
+	add_action('init', __NAMESPACE__ . '\\register_blocks');
+	add_action('init', __NAMESPACE__ . '\\register_shared_styles');
 
 	// Search.
-	add_filter( 'render_block_core/search', __NAMESPACE__ . '\\render_block_search', 10, 3 );
+	add_filter('render_block_core/search', __NAMESPACE__ . '\\render_block_search', 10, 3);
 
 	// Query.
-	add_filter( 'render_block_core/query', __NAMESPACE__ . '\\render_block_query', 10, 3 );
+	add_filter('render_block_core/query', __NAMESPACE__ . '\\render_block_query', 10, 3);
 }
 
 /**
- * Fires when scripts and styles are enqueued.
- *
- * @TODO work out why this doesn't work but building interactivity via the blocks does.
+ * Register shared styles for all query filter blocks.
  */
-function action_wp_enqueue_scripts() : void {
-	$asset = include ROOT_DIR . '/build/taxonomy/index.asset.php';
+function register_shared_styles(): void
+{
 	wp_register_style(
 		'query-filter-view',
-		plugins_url( '/build/taxonomy/index.css', PLUGIN_FILE ),
+		plugins_url('/build/shared-style.css', PLUGIN_FILE),
 		[],
-		$asset['version']
+		'0.2.1'
 	);
 }
 
@@ -49,9 +49,10 @@ function action_wp_enqueue_scripts() : void {
  * Fires after WordPress has finished loading but before any headers are sent.
  *
  */
-function register_blocks() : void {
-	register_block_type( ROOT_DIR . '/build/taxonomy' );
-	register_block_type( ROOT_DIR . '/build/post-type' );
+function register_blocks(): void
+{
+	register_block_type(ROOT_DIR . '/build/taxonomy');
+	register_block_type(ROOT_DIR . '/build/post-type');
 }
 
 /**
@@ -62,8 +63,9 @@ function register_blocks() : void {
  * @param int       $page  Current query's page.
  * @return array Array containing parameters for <code>WP_Query</code> as parsed by the block context.
  */
-function filter_query_loop_block_query_vars( array $query, \WP_Block $block, int $page ) : array {
-	if ( isset( $block->context['queryId'] ) ) {
+function filter_query_loop_block_query_vars(array $query, \WP_Block $block, int $page): array
+{
+	if (isset($block->context['queryId'])) {
 		$query['query_id'] = $block->context['queryId'];
 	}
 
@@ -75,10 +77,11 @@ function filter_query_loop_block_query_vars( array $query, \WP_Block $block, int
  *
  * @param  WP_Query $query The WP_Query instance (passed by reference).
  */
-function pre_get_posts_transpose_query_vars( WP_Query $query ) : void {
-	$query_id = $query->get( 'query_id', null );
+function pre_get_posts_transpose_query_vars(WP_Query $query): void
+{
+	$query_id = $query->get('query_id', null);
 
-	if ( ! $query->is_main_query() && is_null( $query_id ) ) {
+	if (! $query->is_main_query() && is_null($query_id)) {
 		return;
 	}
 
@@ -90,32 +93,49 @@ function pre_get_posts_transpose_query_vars( WP_Query $query ) : void {
 	];
 
 	// Preserve valid params for later retrieval.
-	foreach ( $valid_keys as $key => $default ) {
+	foreach ($valid_keys as $key => $default) {
 		$query->set(
 			"query-filter-$key",
-			$query->get( $key, $default )
+			$query->get($key, $default)
 		);
 	}
 
 	// Map get params to this query.
-	foreach ( $_GET as $key => $value ) {
-		if ( strpos( $key, $prefix ) === 0 ) {
-			$key = str_replace( $prefix, '', $key );
-			$value = sanitize_text_field( urldecode( wp_unslash( $value ) ) );
+	foreach ($_GET as $key => $value) {
+		if (strpos($key, $prefix) === 0) {
+			$key = str_replace($prefix, '', $key);
+			$value = sanitize_text_field(urldecode(wp_unslash($value)));
 
 			// Handle taxonomies specifically.
-			if ( get_taxonomy( $key ) ) {
+			if (get_taxonomy($key)) {
 				$tax_query['relation'] = 'AND';
-				$tax_query[] = [
-					'taxonomy' => $key,
-					'terms' => [ $value ],
-					'field' => 'slug',
-				];
+
+				// Handle multiple values separated by commas (for checkbox mode)
+				$values = explode(',', $value);
+				$values = array_map('trim', $values);
+				$values = array_filter($values);
+
+				if (count($values) > 1) {
+					// Multiple values: OR logic (posts with ANY of these terms)
+					$tax_query[] = [
+						'taxonomy' => $key,
+						'terms' => $values,
+						'field' => 'slug',
+						'operator' => 'IN', // This creates OR logic
+					];
+				} else {
+					// Single value: normal behavior
+					$tax_query[] = [
+						'taxonomy' => $key,
+						'terms' => $values,
+						'field' => 'slug',
+					];
+				}
 			} else {
 				// Other options should map directly to query vars.
-				$key = sanitize_key( $key );
+				$key = sanitize_key($key);
 
-				if ( ! in_array( $key, array_keys( $valid_keys ), true ) ) {
+				if (! in_array($key, array_keys($valid_keys), true)) {
 					continue;
 				}
 
@@ -127,18 +147,18 @@ function pre_get_posts_transpose_query_vars( WP_Query $query ) : void {
 		}
 	}
 
-	if ( ! empty( $tax_query ) ) {
-		$existing_query = $query->get( 'tax_query', [] );
+	if (! empty($tax_query)) {
+		$existing_query = $query->get('tax_query', []);
 
-		if ( ! empty( $existing_query ) ) {
+		if (! empty($existing_query)) {
 			$tax_query = [
 				'relation' => 'AND',
-				[ $existing_query ],
+				[$existing_query],
 				$tax_query,
 			];
 		}
 
-		$query->set( 'tax_query', $tax_query );
+		$query->set('tax_query', $tax_query);
 	}
 }
 
@@ -148,10 +168,11 @@ function pre_get_posts_transpose_query_vars( WP_Query $query ) : void {
  * @param array $metadata Metadata provided for registering a block type.
  * @return array Array of metadata for registering a block type.
  */
-function filter_block_type_metadata( array $metadata ) : array {
+function filter_block_type_metadata(array $metadata): array
+{
 	// Add query context to search block.
-	if ( $metadata['name'] === 'core/search' ) {
-		$metadata['usesContext'] = array_merge( $metadata['usesContext'] ?? [], [ 'queryId', 'query' ] );
+	if ($metadata['name'] === 'core/search') {
+		$metadata['usesContext'] = array_merge($metadata['usesContext'] ?? [], ['queryId', 'query']);
 	}
 
 	return $metadata;
@@ -165,42 +186,43 @@ function filter_block_type_metadata( array $metadata ) : array {
  * @param \WP_Block $instance      The block instance.
  * @return string The block content.
  */
-function render_block_search( string $block_content, array $block, \WP_Block $instance ) : string {
-	if ( empty( $instance->context['query'] ) ) {
+function render_block_search(string $block_content, array $block, \WP_Block $instance): string
+{
+	if (empty($instance->context['query'])) {
 		return $block_content;
 	}
 
-	wp_enqueue_script_module( 'query-filter-taxonomy-view-script-module' );
+	wp_enqueue_script_module('query-filter-taxonomy-view-script-module');
 
-	$query_var = empty( $instance->context['query']['inherit'] )
-		? sprintf( 'query-%d-s', $instance->context['queryId'] ?? 0 )
+	$query_var = empty($instance->context['query']['inherit'])
+		? sprintf('query-%d-s', $instance->context['queryId'] ?? 0)
 		: 's';
 
-	$action = str_replace( '/page/'. get_query_var( 'paged', 1 ), '', add_query_arg( [ $query_var => '' ] ) );
+	$action = str_replace('/page/' . get_query_var('paged', 1), '', add_query_arg([$query_var => '']));
 
 	// Note sanitize_text_field trims whitespace from start/end of string causing unexpected behaviour.
-	$value = wp_unslash( $_GET[ $query_var ] ?? '' );
-	$value = urldecode( $value );
-	$value = wp_check_invalid_utf8( $value );
-	$value = wp_pre_kses_less_than( $value );
-	$value = strip_tags( $value );
+	$value = wp_unslash($_GET[$query_var] ?? '');
+	$value = urldecode($value);
+	$value = wp_check_invalid_utf8($value);
+	$value = wp_pre_kses_less_than($value);
+	$value = strip_tags($value);
 
-	wp_interactivity_state( 'query-filter', [
+	wp_interactivity_state('query-filter', [
 		'searchValue' => $value,
-	] );
+	]);
 
-	$block_content = new WP_HTML_Tag_Processor( $block_content );
-	$block_content->next_tag( [ 'tag_name' => 'form' ] );
-	$block_content->set_attribute( 'action', $action );
-	$block_content->set_attribute( 'data-wp-interactive', 'query-filter' );
-	$block_content->set_attribute( 'data-wp-on--submit', 'actions.search' );
-	$block_content->set_attribute( 'data-wp-context', '{searchValue:""}' );
-	$block_content->next_tag( [ 'tag_name' => 'input', 'class_name' => 'wp-block-search__input' ] );
-	$block_content->set_attribute( 'name', $query_var );
-	$block_content->set_attribute( 'inputmode', 'search' );
-	$block_content->set_attribute( 'value', $value );
-	$block_content->set_attribute( 'data-wp-bind--value', 'state.searchValue' );
-	$block_content->set_attribute( 'data-wp-on--input', 'actions.search' );
+	$block_content = new WP_HTML_Tag_Processor($block_content);
+	$block_content->next_tag(['tag_name' => 'form']);
+	$block_content->set_attribute('action', $action);
+	$block_content->set_attribute('data-wp-interactive', 'query-filter');
+	$block_content->set_attribute('data-wp-on--submit', 'actions.search');
+	$block_content->set_attribute('data-wp-context', '{searchValue:""}');
+	$block_content->next_tag(['tag_name' => 'input', 'class_name' => 'wp-block-search__input']);
+	$block_content->set_attribute('name', $query_var);
+	$block_content->set_attribute('inputmode', 'search');
+	$block_content->set_attribute('value', $value);
+	$block_content->set_attribute('data-wp-bind--value', 'state.searchValue');
+	$block_content->set_attribute('data-wp-on--input', 'actions.search');
 
 	return (string) $block_content;
 }
@@ -212,12 +234,13 @@ function render_block_search( string $block_content, array $block, \WP_Block $in
  * @param array     $block         Parsed block.
  * @return string
  */
-function render_block_query( $block_content, $block ) {
-	$block_content = new WP_HTML_Tag_Processor( $block_content );
+function render_block_query($block_content, $block)
+{
+	$block_content = new WP_HTML_Tag_Processor($block_content);
 	$block_content->next_tag();
 
 	// Always allow region updates on interactivity, use standard core region naming.
-	$block_content->set_attribute( 'data-wp-router-region', 'query-' . ( $block['attrs']['queryId'] ?? 0 ) );
+	$block_content->set_attribute('data-wp-router-region', 'query-' . ($block['attrs']['queryId'] ?? 0));
 
 	return (string) $block_content;
 }

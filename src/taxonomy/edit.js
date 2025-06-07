@@ -5,11 +5,20 @@ import {
 	SelectControl,
 	TextControl,
 	ToggleControl,
+	__experimentalToggleGroupControl as ToggleGroupControl,
+	__experimentalToggleGroupControlOption as ToggleGroupControlOption,
 } from '@wordpress/components';
 import { useSelect } from '@wordpress/data';
 
 export default function Edit( { attributes, setAttributes } ) {
-	const { taxonomy, emptyLabel, label, showLabel } = attributes;
+	const {
+		taxonomy,
+		emptyLabel,
+		label,
+		showLabel,
+		displayType,
+		layoutDirection,
+	} = attributes;
 
 	const taxonomies = useSelect(
 		( select ) => {
@@ -60,6 +69,58 @@ export default function Edit( { attributes, setAttributes } ) {
 							} )
 						}
 					/>
+					<SelectControl
+						label={ __( 'Display Type', 'query-filter' ) }
+						value={ displayType }
+						options={ [
+							{
+								label: __(
+									'Select (Dropdown)',
+									'query-filter'
+								),
+								value: 'select',
+							},
+							{
+								label: __(
+									'Radio (Single Choice)',
+									'query-filter'
+								),
+								value: 'radio',
+							},
+							{
+								label: __(
+									'Checkbox (Multiple Choice)',
+									'query-filter'
+								),
+								value: 'checkbox',
+							},
+						] }
+						onChange={ ( displayType ) =>
+							setAttributes( { displayType } )
+						}
+					/>
+					{ ( displayType === 'radio' ||
+						displayType === 'checkbox' ) && (
+						<ToggleGroupControl
+							label={ __( 'Layout Direction', 'query-filter' ) }
+							value={ layoutDirection }
+							onChange={ ( layoutDirection ) =>
+								setAttributes( { layoutDirection } )
+							}
+							isBlock
+							__nextHasNoMarginBottom
+							__next40pxDefaultSize
+						>
+							<ToggleGroupControlOption
+								value="vertical"
+								label={ __( 'Vertical', 'query-filter' ) }
+							/>
+							<ToggleGroupControlOption
+								value="horizontal"
+								label={ __( 'Horizontal', 'query-filter' ) }
+							/>
+						</ToggleGroupControl>
+					) }
 					<TextControl
 						label={ __( 'Label', 'query-filter' ) }
 						value={ label }
@@ -92,17 +153,64 @@ export default function Edit( { attributes, setAttributes } ) {
 						{ label }
 					</label>
 				) }
-				<select
-					className="wp-block-query-filter-taxonomy__select wp-block-query-filter__select"
-					inert
-				>
-					<option>
-						{ emptyLabel || __( 'All', 'query-filter' ) }
-					</option>
-					{ terms.map( ( term ) => (
-						<option key={ term.slug }>{ term.name }</option>
-					) ) }
-				</select>
+				{ displayType === 'select' && (
+					<select
+						className="wp-block-query-filter-taxonomy__select wp-block-query-filter__select"
+						inert
+					>
+						<option>
+							{ emptyLabel || __( 'All', 'query-filter' ) }
+						</option>
+						{ terms.map( ( term ) => (
+							<option key={ term.slug }>{ term.name }</option>
+						) ) }
+					</select>
+				) }
+				{ displayType === 'radio' && (
+					<div
+						className={ `wp-block-query-filter-taxonomy__radio-group wp-block-query-filter__radio-group${
+							layoutDirection === 'horizontal'
+								? ' horizontal'
+								: ''
+						}` }
+					>
+						<label>
+							<input
+								type="radio"
+								name="taxonomy-preview"
+								defaultChecked
+								inert
+							/>
+							{ emptyLabel || __( 'All', 'query-filter' ) }
+						</label>
+						{ terms.map( ( term ) => (
+							<label key={ term.slug }>
+								<input
+									type="radio"
+									name="taxonomy-preview"
+									inert
+								/>
+								{ term.name }
+							</label>
+						) ) }
+					</div>
+				) }
+				{ displayType === 'checkbox' && (
+					<div
+						className={ `wp-block-query-filter-taxonomy__checkbox-group wp-block-query-filter__checkbox-group${
+							layoutDirection === 'horizontal'
+								? ' horizontal'
+								: ''
+						}` }
+					>
+						{ terms.map( ( term ) => (
+							<label key={ term.slug }>
+								<input type="checkbox" inert />
+								{ term.name }
+							</label>
+						) ) }
+					</div>
+				) }
 			</div>
 		</>
 	);

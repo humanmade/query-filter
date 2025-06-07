@@ -7,3 +7,33 @@
 	flex-direction: column;
 	justify-content: stretch;
 }
+
+/* Radio group styles */
+.wp-block-query-filter__radio-group,
+.wp-block-query-filter__checkbox-group {
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+}
+
+.wp-block-query-filter__radio-group label,
+.wp-block-query-filter__checkbox-group label {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	cursor: pointer;
+	padding: 0.25rem 0;
+}
+
+.wp-block-query-filter__radio-group input,
+.wp-block-query-filter__checkbox-group input {
+	margin: 0;
+}
+
+/* Horizontal layout option */
+.wp-block-query-filter__radio-group.horizontal,
+.wp-block-query-filter__checkbox-group.horizontal {
+	flex-direction: row;
+	flex-wrap: wrap;
+	gap: 1rem;
+}
