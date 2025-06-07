@@ -1,10 +1,18 @@
 import { __ } from '@wordpress/i18n';
 import { useBlockProps, InspectorControls } from '@wordpress/block-editor';
-import { PanelBody, TextControl, ToggleControl } from '@wordpress/components';
+import {
+	PanelBody,
+	TextControl,
+	ToggleControl,
+	SelectControl,
+	__experimentalToggleGroupControl as ToggleGroupControl,
+	__experimentalToggleGroupControlOption as ToggleGroupControlOption,
+} from '@wordpress/components';
 import { useSelect } from '@wordpress/data';
 
 export default function Edit( { attributes, setAttributes, context } ) {
-	const { emptyLabel, label, showLabel } = attributes;
+	const { emptyLabel, label, showLabel, displayType, layoutDirection } =
+		attributes;
 
 	const allPostTypes = useSelect( ( select ) => {
 		return (
@@ -38,6 +46,58 @@ export default function Edit( { attributes, setAttributes, context } ) {
 		<>
 			<InspectorControls>
 				<PanelBody title={ __( 'Post Type Settings', 'query-filter' ) }>
+					<SelectControl
+						label={ __( 'Display Type', 'query-filter' ) }
+						value={ displayType }
+						options={ [
+							{
+								label: __(
+									'Select (Dropdown)',
+									'query-filter'
+								),
+								value: 'select',
+							},
+							{
+								label: __(
+									'Radio (Single Choice)',
+									'query-filter'
+								),
+								value: 'radio',
+							},
+							{
+								label: __(
+									'Checkbox (Multiple Choice)',
+									'query-filter'
+								),
+								value: 'checkbox',
+							},
+						] }
+						onChange={ ( displayType ) =>
+							setAttributes( { displayType } )
+						}
+					/>
+					{ ( displayType === 'radio' ||
+						displayType === 'checkbox' ) && (
+						<ToggleGroupControl
+							label={ __( 'Layout Direction', 'query-filter' ) }
+							value={ layoutDirection }
+							onChange={ ( layoutDirection ) =>
+								setAttributes( { layoutDirection } )
+							}
+							isBlock
+							__nextHasNoMarginBottom
+							__next40pxDefaultSize
+						>
+							<ToggleGroupControlOption
+								value="vertical"
+								label={ __( 'Vertical', 'query-filter' ) }
+							/>
+							<ToggleGroupControlOption
+								value="horizontal"
+								label={ __( 'Horizontal', 'query-filter' ) }
+							/>
+						</ToggleGroupControl>
+					) }
 					<TextControl
 						label={ __( 'Label', 'query-filter' ) }
 						value={ label }
@@ -71,17 +131,64 @@ export default function Edit( { attributes, setAttributes, context } ) {
 						{ label || __( 'Content Type', 'query-filter' ) }
 					</label>
 				) }
-				<select
-					className="wp-block-query-filter-post-type__select wp-block-query-filter__select"
-					inert
-				>
-					<option>
-						{ emptyLabel || __( 'All', 'query-filter' ) }
-					</option>
-					{ postTypes.map( ( type ) => (
-						<option key={ type.slug }>{ type.name }</option>
-					) ) }
-				</select>
+				{ displayType === 'select' && (
+					<select
+						className="wp-block-query-filter-post-type__select wp-block-query-filter__select"
+						inert
+					>
+						<option>
+							{ emptyLabel || __( 'All', 'query-filter' ) }
+						</option>
+						{ postTypes.map( ( type ) => (
+							<option key={ type.slug }>{ type.name }</option>
+						) ) }
+					</select>
+				) }
+				{ displayType === 'radio' && (
+					<div
+						className={ `wp-block-query-filter-post-type__radio-group wp-block-query-filter__radio-group${
+							layoutDirection === 'horizontal'
+								? ' horizontal'
+								: ''
+						}` }
+					>
+						<label>
+							<input
+								type="radio"
+								name="post-type-preview"
+								defaultChecked
+								inert
+							/>
+							{ emptyLabel || __( 'All', 'query-filter' ) }
+						</label>
+						{ postTypes.map( ( type ) => (
+							<label key={ type.slug }>
+								<input
+									type="radio"
+									name="post-type-preview"
+									inert
+								/>
+								{ type.name }
+							</label>
+						) ) }
+					</div>
+				) }
+				{ displayType === 'checkbox' && (
+					<div
+						className={ `wp-block-query-filter-post-type__checkbox-group wp-block-query-filter__checkbox-group${
+							layoutDirection === 'horizontal'
+								? ' horizontal'
+								: ''
+						}` }
+					>
+						{ postTypes.map( ( type ) => (
+							<label key={ type.slug }>
+								<input type="checkbox" inert />
+								{ type.name }
+							</label>
+						) ) }
+					</div>
+				) }
 			</div>
 		</>
 	);

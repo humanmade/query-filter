@@ -73,7 +73,7 @@ function filter_query_loop_block_query_vars( array $query, \WP_Block $block, int
 /**
  * Fires after the query variable object is created, but before the actual query is run.
  *
- * @param  WP_Query $query The WP_Query instance (passed by reference).
+ * @param WP_Query $query The WP_Query instance (passed by reference).
  */
 function pre_get_posts_transpose_query_vars( WP_Query $query ) : void {
 	$query_id = $query->get( 'query_id', null );
@@ -106,11 +106,28 @@ function pre_get_posts_transpose_query_vars( WP_Query $query ) : void {
 			// Handle taxonomies specifically.
 			if ( get_taxonomy( $key ) ) {
 				$tax_query['relation'] = 'AND';
-				$tax_query[] = [
-					'taxonomy' => $key,
-					'terms' => [ $value ],
-					'field' => 'slug',
-				];
+
+				// Handle multiple values separated by commas (for checkbox mode)
+				$values = explode( ',', $value );
+				$values = array_map( 'trim', $values );
+				$values = array_filter( $values );
+
+				if ( count( $values ) > 1 ) {
+					// Multiple values: OR logic (posts with ANY of these terms)
+					$tax_query[] = [
+						'taxonomy' => $key,
+						'terms' => $values,
+						'field' => 'slug',
+						'operator' => 'IN', // This creates OR logic
+					];
+				} else {
+					// Single value: normal behavior
+					$tax_query[] = [
+						'taxonomy' => $key,
+						'terms' => $values,
+						'field' => 'slug',
+					];
+				}
 			} else {
 				// Other options should map directly to query vars.
 				$key = sanitize_key( $key );
@@ -176,7 +193,7 @@ function render_block_search( string $block_content, array $block, \WP_Block $in
 		? sprintf( 'query-%d-s', $instance->context['queryId'] ?? 0 )
 		: 'query-s';
 
-	$action = str_replace( '/page/'. get_query_var( 'paged', 1 ), '', add_query_arg( [ $query_var => '' ] ) );
+	$action = str_replace( '/page/' . get_query_var( 'paged', 1 ), '', add_query_arg( [ $query_var => '' ] ) );
 
 	// Note sanitize_text_field trims whitespace from start/end of string causing unexpected behaviour.
 	$value = wp_unslash( $_GET[ $query_var ] ?? '' );
