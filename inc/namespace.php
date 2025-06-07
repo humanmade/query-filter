@@ -23,26 +23,12 @@ function bootstrap(): void
 	add_action('pre_get_posts', __NAMESPACE__ . '\\pre_get_posts_transpose_query_vars');
 	add_filter('block_type_metadata', __NAMESPACE__ . '\\filter_block_type_metadata', 10);
 	add_action('init', __NAMESPACE__ . '\\register_blocks');
-	add_action('init', __NAMESPACE__ . '\\register_shared_styles');
 
 	// Search.
 	add_filter('render_block_core/search', __NAMESPACE__ . '\\render_block_search', 10, 3);
 
 	// Query.
 	add_filter('render_block_core/query', __NAMESPACE__ . '\\render_block_query', 10, 3);
-}
-
-/**
- * Register shared styles for all query filter blocks.
- */
-function register_shared_styles(): void
-{
-	wp_register_style(
-		'query-filter-view',
-		plugins_url('/build/shared-style.css', PLUGIN_FILE),
-		[],
-		'0.2.1'
-	);
 }
 
 /**

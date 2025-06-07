@@ -32,12 +32,12 @@ if (is_wp_error($terms) || empty($terms)) {
 ?>
 
 <div <?php echo get_block_wrapper_attributes(['class' => 'wp-block-query-filter']); ?> data-wp-interactive="query-filter" data-wp-context="{}">
-	<label class="wp-block-query-filter-post-type__label wp-block-query-filter__label<?php echo $attributes['showLabel'] ? '' : ' screen-reader-text' ?>" for="<?php echo esc_attr($id); ?>">
+	<label class="wp-block-query-filter-taxonomy__label wp-block-query-filter__label<?php echo $attributes['showLabel'] ? '' : ' screen-reader-text' ?>" for="<?php echo esc_attr($id); ?>">
 		<?php echo esc_html($attributes['label'] ?? $taxonomy->label); ?>
 	</label>
 
 	<?php if ($display_type === 'select') : ?>
-		<select class="wp-block-query-filter-post-type__select wp-block-query-filter__select" id="<?php echo esc_attr($id); ?>" data-wp-on--change="actions.navigate">
+		<select class="wp-block-query-filter-taxonomy__select wp-block-query-filter__select" id="<?php echo esc_attr($id); ?>" data-wp-on--change="actions.navigate">
 			<option value="<?php echo esc_attr($base_url) ?>"><?php echo esc_html($attributes['emptyLabel'] ?: __('All', 'query-filter')); ?></option>
 			<?php foreach ($terms as $term) : ?>
 				<option value="<?php echo esc_attr(add_query_arg([$query_var => $term->slug, $page_var => false], $base_url)) ?>" <?php selected($term->slug, wp_unslash($_GET[$query_var] ?? '')); ?>><?php echo esc_html($term->name); ?></option>
