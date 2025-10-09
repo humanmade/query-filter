@@ -1,1 +1,15 @@
-@view-transition{navigation:auto}.wp-block-query-filter{display:flex;flex-direction:column;justify-content:stretch}
+/*!**********************************************************************************************************************************************************************************!*\
+  !*** css ./node_modules/css-loader/dist/cjs.js??ruleSet[1].rules[2].use[1]!./node_modules/postcss-loader/dist/cjs.js??ruleSet[1].rules[2].use[2]!./src/taxonomy/style-index.css ***!
+  \**********************************************************************************************************************************************************************************/
+@view-transition {
+	navigation: auto;
+}
+
+.wp-block-query-filter {
+	display: flex;
+	flex-direction: column;
+	justify-content: stretch;
+}
+
+
+/*# sourceMappingURL=index.css.map*/

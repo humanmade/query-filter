@@ -61,24 +61,12 @@ module.exports = __WEBPACK_EXTERNAL_MODULE__wordpress_interactivity_8e89b257__;
 /******/ 
 /************************************************************************/
 var __webpack_exports__ = {};
-/*!******************************!*\
-  !*** ./src/taxonomy/view.js ***!
-  \******************************/
+/*!**************************!*\
+  !*** ./src/meta/view.js ***!
+  \**************************/
 __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _wordpress_interactivity__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! @wordpress/interactivity */ "@wordpress/interactivity");
 
-const updateURL = async (action, value, name) => {
-  const url = new URL(action);
-  if (value || name === 's') {
-    url.searchParams.set(name, value);
-  } else {
-    url.searchParams.delete(name);
-  }
-  const {
-    actions
-  } = await Promise.resolve(/*! import() */).then(__webpack_require__.bind(__webpack_require__, /*! @wordpress/interactivity-router */ "@wordpress/interactivity-router"));
-  await actions.navigate(url.toString());
-};
 const {
   state
 } = (0,_wordpress_interactivity__WEBPACK_IMPORTED_MODULE_0__.store)('query-filter', {
@@ -89,28 +77,6 @@ const {
         actions
       } = yield Promise.resolve(/*! import() */).then(__webpack_require__.bind(__webpack_require__, /*! @wordpress/interactivity-router */ "@wordpress/interactivity-router"));
       yield actions.navigate(e.target.value);
-    },
-    *search(e) {
-      e.preventDefault();
-      const {
-        ref
-      } = (0,_wordpress_interactivity__WEBPACK_IMPORTED_MODULE_0__.getElement)();
-      let action, name, value;
-      if (ref.tagName === 'FORM') {
-        const input = ref.querySelector('input[type="search"]');
-        action = ref.action;
-        name = input.name;
-        value = input.value;
-      } else {
-        action = ref.closest('form').action;
-        name = ref.name;
-        value = ref.value;
-      }
-
-      // Don't navigate if the search didn't really change.
-      if (value === state.searchValue) return;
-      state.searchValue = value;
-      yield updateURL(action, value, name);
     }
   }
 });

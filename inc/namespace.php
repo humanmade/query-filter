@@ -23,6 +23,7 @@ function bootstrap() : void {
 	add_filter( 'block_type_metadata', __NAMESPACE__ . '\\filter_block_type_metadata', 10 );
 	add_action( 'init', __NAMESPACE__ . '\\register_blocks' );
 	add_action( 'enqueue_block_assets', __NAMESPACE__ . '\\action_wp_enqueue_scripts' );
+	add_action( 'rest_api_init', __NAMESPACE__ . '\\register_rest_routes' );
 
 	// Search.
 	add_filter( 'render_block_core/search', __NAMESPACE__ . '\\render_block_search', 10, 3 );
@@ -53,6 +54,7 @@ function action_wp_enqueue_scripts() : void {
 function register_blocks() : void {
 	register_block_type( ROOT_DIR . '/build/taxonomy' );
 	register_block_type( ROOT_DIR . '/build/post-type' );
+	register_block_type( ROOT_DIR . '/build/meta' );
 }
 
 /**
@@ -85,6 +87,7 @@ function pre_get_posts_transpose_query_vars( WP_Query $query ) : void {
 
 	$prefix = $query->is_main_query() ? 'query-' : "query-{$query_id}-";
 	$tax_query = [];
+	$meta_query = [];
 	$valid_keys = [
 		'post_type' => $query->is_search() ? 'any' : 'post',
 		's' => '',
@@ -104,8 +107,18 @@ function pre_get_posts_transpose_query_vars( WP_Query $query ) : void {
 			$key = str_replace( $prefix, '', $key );
 			$value = sanitize_text_field( urldecode( wp_unslash( $value ) ) );
 
+			// Handle meta queries.
+			if ( strpos( $key, 'meta-' ) === 0 ) {
+				$meta_key = str_replace( 'meta-', '', $key );
+				$meta_query['relation'] = 'AND';
+				$meta_query[] = [
+					'key' => $meta_key,
+					'value' => $value,
+					'compare' => '=',
+				];
+			}
 			// Handle taxonomies specifically.
-			if ( get_taxonomy( $key ) ) {
+			elseif ( get_taxonomy( $key ) ) {
 				$tax_query['relation'] = 'AND';
 				$tax_query[] = [
 					'taxonomy' => $key,
@@ -140,6 +153,20 @@ function pre_get_posts_transpose_query_vars( WP_Query $query ) : void {
 		}
 
 		$query->set( 'tax_query', $tax_query );
+	}
+
+	if ( ! empty( $meta_query ) ) {
+		$existing_meta_query = $query->get( 'meta_query', [] );
+
+		if ( ! empty( $existing_meta_query ) ) {
+			$meta_query = [
+				'relation' => 'AND',
+				[ $existing_meta_query ],
+				$meta_query,
+			];
+		}
+
+		$query->set( 'meta_query', $meta_query );
 	}
 }
 
@@ -260,4 +287,160 @@ function aql_enable_date_functions( $query_args, $block_query, $inherited ) {
 	}
 
 	return $query_args;
+}
+
+/**
+ * Register REST API routes for meta filtering.
+ *
+ * @return void
+ */
+function register_rest_routes() : void {
+	register_rest_route(
+		'query-filter/v1',
+		'/meta-cardinality',
+		[
+			'methods' => 'GET',
+			'callback' => __NAMESPACE__ . '\\rest_get_meta_cardinality',
+			'permission_callback' => function() {
+				return current_user_can( 'edit_posts' );
+			},
+			'args' => [
+				'post_type' => [
+					'required' => true,
+					'type' => 'string',
+					'sanitize_callback' => 'sanitize_text_field',
+				],
+				'meta_key' => [
+					'required' => true,
+					'type' => 'string',
+					'sanitize_callback' => 'sanitize_text_field',
+				],
+			],
+		]
+	);
+
+	register_rest_route(
+		'query-filter/v1',
+		'/meta-values',
+		[
+			'methods' => 'GET',
+			'callback' => __NAMESPACE__ . '\\rest_get_meta_values',
+			'permission_callback' => function() {
+				return current_user_can( 'edit_posts' );
+			},
+			'args' => [
+				'post_type' => [
+					'required' => true,
+					'type' => 'string',
+					'sanitize_callback' => 'sanitize_text_field',
+				],
+				'meta_key' => [
+					'required' => true,
+					'type' => 'string',
+					'sanitize_callback' => 'sanitize_text_field',
+				],
+			],
+		]
+	);
+}
+
+/**
+ * REST API callback for getting meta cardinality.
+ *
+ * @param \WP_REST_Request $request Request object.
+ * @return \WP_REST_Response Response object.
+ */
+function rest_get_meta_cardinality( \WP_REST_Request $request ) : \WP_REST_Response {
+	$post_type = $request->get_param( 'post_type' );
+	$meta_key = $request->get_param( 'meta_key' );
+
+	$cardinality = get_meta_cardinality( $meta_key, [ $post_type ] );
+
+	return rest_ensure_response( [
+		'cardinality' => $cardinality,
+	] );
+}
+
+/**
+ * REST API callback for getting meta values.
+ *
+ * @param \WP_REST_Request $request Request object.
+ * @return \WP_REST_Response Response object.
+ */
+function rest_get_meta_values( \WP_REST_Request $request ) : \WP_REST_Response {
+	$post_types = explode( ',', $request->get_param( 'post_type' ) );
+	$meta_key = $request->get_param( 'meta_key' );
+
+	$values = get_distinct_meta_values( $meta_key, $post_types );
+
+	return rest_ensure_response( [
+		'values' => $values,
+	] );
+}
+
+/**
+ * Get the cardinality (number of distinct values) for a meta key.
+ *
+ * @param string $meta_key   Meta key to check.
+ * @param array  $post_types Post types to check.
+ * @return int Number of distinct values.
+ */
+function get_meta_cardinality( string $meta_key, array $post_types ) : int {
+	global $wpdb;
+
+	$post_types_placeholder = implode( ',', array_fill( 0, count( $post_types ), '%s' ) );
+
+	$query = $wpdb->prepare(
+		"SELECT COUNT(DISTINCT pm.meta_value) as cardinality
+		FROM {$wpdb->postmeta} pm
+		INNER JOIN {$wpdb->posts} p ON pm.post_id = p.ID
+		WHERE pm.meta_key = %s
+		AND p.post_type IN ($post_types_placeholder)
+		AND p.post_status = 'publish'",
+		array_merge( [ $meta_key ], $post_types )
+	);
+
+	$result = $wpdb->get_var( $query );
+
+	return (int) $result;
+}
+
+/**
+ * Get distinct meta values for a meta key, with caching.
+ *
+ * @param string $meta_key   Meta key to get values for.
+ * @param array  $post_types Post types to check.
+ * @return array Array of distinct values.
+ */
+function get_distinct_meta_values( string $meta_key, array $post_types ) : array {
+	$cache_key = 'query_filter_meta_' . md5( $meta_key . implode( '_', $post_types ) );
+	$cached = get_transient( $cache_key );
+
+	if ( false !== $cached ) {
+		return $cached;
+	}
+
+	global $wpdb;
+
+	$post_types_placeholder = implode( ',', array_fill( 0, count( $post_types ), '%s' ) );
+
+	$query = $wpdb->prepare(
+		"SELECT DISTINCT pm.meta_value
+		FROM {$wpdb->postmeta} pm
+		INNER JOIN {$wpdb->posts} p ON pm.post_id = p.ID
+		WHERE pm.meta_key = %s
+		AND p.post_type IN ($post_types_placeholder)
+		AND p.post_status = 'publish'
+		AND pm.meta_value != ''
+		ORDER BY pm.meta_value ASC
+		LIMIT 50",
+		array_merge( [ $meta_key ], $post_types )
+	);
+
+	$results = $wpdb->get_col( $query );
+
+	// Cache for 1 hour
+	set_transient( $cache_key, $results, HOUR_IN_SECONDS );
+
+	return $results;
 }

@@ -1,0 +1,12 @@
+/* Meta filter block styles */
+.wp-block-query-filter-meta__label {
+	display: block;
+	margin-bottom: 0.5em;
+}
+
+.wp-block-query-filter-meta__select {
+	width: 100%;
+	padding: 0.5em;
+	border: 1px solid #ddd;
+	border-radius: 4px;
+}
