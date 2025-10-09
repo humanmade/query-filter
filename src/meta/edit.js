@@ -7,15 +7,12 @@ import {
 	ToggleControl,
 	Spinner,
 } from '@wordpress/components';
-import apiFetch from '@wordpress/api-fetch';
 import { store as coreStore } from '@wordpress/core-data';
 import { useSelect } from '@wordpress/data';
-import { useState, useEffect, useCallback } from '@wordpress/element';
+import { useState, useEffect, useMemo } from '@wordpress/element';
 
 export default function Edit( { attributes, setAttributes, context } ) {
 	const { metaKey, emptyLabel, label, showLabel } = attributes;
-	const [ metaValues, setMetaValues ] = useState( [] );
-	const [ isLoadingValues, setIsLoadingValues ] = useState( false );
 	const [ metaFieldOptions, setMetaFieldOptions ] = useState( [] );
 
 	// Get post types from query context
@@ -48,54 +45,69 @@ export default function Edit( { attributes, setAttributes, context } ) {
 		[ contextPostTypes ]
 	);
 
-	// Extract meta fields from fetched posts
-	const fetchMetaFields = useCallback( async () => {
-		const fields = [];
-		const cardinalityCache = {};
-		const metaKeySet = new Set();
+	// Get meta cardinality and values from the data store
+	const { metaCardinalities, metaValues, isLoadingValues } = useSelect(
+		select => {
+			const metaStore = select( 'query-filter/meta' );
+			const cardinalities = {};
 
-		for ( const postType of contextPostTypes ) {
-			const posts = postsData[ postType ];
-
-			if ( posts && posts.length > 0 && posts[ 0 ].meta ) {
-				const metaKeys = Object.keys( posts[ 0 ].meta );
-
-				for ( const key of metaKeys ) {
-					// Skip if we've already processed this key
-					if ( metaKeySet.has( key ) ) {
-						continue;
-					}
-					metaKeySet.add( key );
-
-					// Check cardinality
-					const cacheKey = `meta_cardinality_${ postType }_${ key }`;
-					let cardinality = cardinalityCache[ cacheKey ];
-
-					if ( ! cardinality ) {
-						try {
-							const cardinalityResponse = await apiFetch( {
-								path: `/query-filter/v1/meta-cardinality?post_type=${ postType }&meta_key=${ key }`,
-							} );
-							cardinality = cardinalityResponse?.cardinality || 0;
-							cardinalityCache[ cacheKey ] = cardinality;
-						} catch ( error ) {
-							cardinality = 999; // Assume too many if error
+			// Get cardinality for all meta keys across all post types
+			contextPostTypes.forEach( postType => {
+				const posts = postsData[ postType ];
+				if ( posts && posts.length > 0 && posts[ 0 ].meta ) {
+					Object.keys( posts[ 0 ].meta ).forEach( key => {
+						if ( ! cardinalities[ key ] ) {
+							cardinalities[ key ] = metaStore?.getMetaCardinality( postType, key );
 						}
-					}
-
-					const tooManyValues = cardinality > 50;
-
-					fields.push( {
-						label: tooManyValues
-							? `${ key } (too many values)`
-							: key,
-						value: key,
-						disabled: tooManyValues,
-						cardinality,
 					} );
 				}
+			} );
+
+			// Get meta values for selected key
+			const values = metaKey && contextPostTypes.length > 0
+				? metaStore?.getMetaValues( contextPostTypes, metaKey )
+				: [];
+
+			return {
+				metaCardinalities: cardinalities,
+				metaValues: values || [],
+				isLoadingValues: ! metaKey || values === undefined,
+			};
+		},
+		[ contextPostTypes, postsData, metaKey ]
+	);
+
+	// Extract meta fields from posts and combine with cardinality
+	const allMetaKeys = useMemo( () => {
+		const metaKeySet = new Set();
+
+		contextPostTypes.forEach( postType => {
+			const posts = postsData[ postType ];
+			if ( posts && posts.length > 0 && posts[ 0 ].meta ) {
+				Object.keys( posts[ 0 ].meta ).forEach( key => {
+					metaKeySet.add( key );
+				} );
 			}
-		}
+		} );
+
+		return Array.from( metaKeySet );
+	}, [ postsData, contextPostTypes ] );
+
+	// Build field options when meta keys or cardinalities change
+	useEffect( () => {
+		const fields = allMetaKeys.map( key => {
+			const cardinality = metaCardinalities[ key ] || 0;
+			const tooManyValues = cardinality > 50;
+
+			return {
+				label: tooManyValues
+					? `${ key } (too many values)`
+					: key,
+				value: key,
+				disabled: tooManyValues,
+				cardinality,
+			};
+		} );
 
 		// Sort fields: enabled first, then by label
 		fields.sort( ( a, b ) => {
@@ -106,75 +118,7 @@ export default function Edit( { attributes, setAttributes, context } ) {
 		} );
 
 		setMetaFieldOptions( fields );
-	}, [ postsData, contextPostTypes ] );
-
-	useEffect( () => {
-		// Only fetch when we have posts data
-		const hasAllPosts = contextPostTypes.every(
-			postType => postsData[ postType ] !== undefined
-		);
-
-		if ( hasAllPosts && contextPostTypes.length > 0 ) {
-			fetchMetaFields();
-		}
-	}, [ fetchMetaFields, postsData, contextPostTypes ] );
-
-	// Fetch meta values when metaKey changes
-	const fetchMetaValues = useCallback( async () => {
-		if ( ! metaKey || isLoadingValues ) {
-			return;
-		}
-
-		setIsLoadingValues( true );
-		const cacheKey = `meta_values_${ contextPostTypes.join( '_' ) }_${ metaKey }`;
-		const cacheExpiry = 60 * 60 * 1000; // 1 hour
-
-		// Check localStorage cache
-		try {
-			const cached = localStorage.getItem( cacheKey );
-			if ( cached ) {
-				const { values, timestamp } = JSON.parse( cached );
-				if ( Date.now() - timestamp < cacheExpiry ) {
-					setMetaValues( values );
-					setIsLoadingValues( false );
-					return;
-				}
-			}
-		} catch ( error ) {
-			// Cache read error, continue with fetch
-		}
-
-		// Fetch from API
-		try {
-			const response = await apiFetch( {
-				path: `/query-filter/v1/meta-values?post_type=${ contextPostTypes.join( ',' ) }&meta_key=${ metaKey }`,
-			} );
-
-			const values = response?.values || [];
-			setMetaValues( values );
-
-			// Cache the results
-			try {
-				localStorage.setItem(
-					cacheKey,
-					JSON.stringify( {
-						values,
-						timestamp: Date.now(),
-					} )
-				);
-			} catch ( error ) {
-				// Cache write error, not critical
-			}
-		} catch ( error ) {
-			setMetaValues( [] );
-		}
-
-		setIsLoadingValues( false );
-	}, [ isLoadingValues, metaKey, contextPostTypes ] );
-
-	useEffect( () => {
-		fetchMetaValues();
-	}, [ fetchMetaValues ] );
+	}, [ allMetaKeys, metaCardinalities ] );
 
 	return (
 		<>

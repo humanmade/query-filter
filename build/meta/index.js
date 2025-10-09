@@ -18,17 +18,14 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _wordpress_block_editor__WEBPACK_IMPORTED_MODULE_1___default = /*#__PURE__*/__webpack_require__.n(_wordpress_block_editor__WEBPACK_IMPORTED_MODULE_1__);
 /* harmony import */ var _wordpress_components__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! @wordpress/components */ "@wordpress/components");
 /* harmony import */ var _wordpress_components__WEBPACK_IMPORTED_MODULE_2___default = /*#__PURE__*/__webpack_require__.n(_wordpress_components__WEBPACK_IMPORTED_MODULE_2__);
-/* harmony import */ var _wordpress_api_fetch__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! @wordpress/api-fetch */ "@wordpress/api-fetch");
-/* harmony import */ var _wordpress_api_fetch__WEBPACK_IMPORTED_MODULE_3___default = /*#__PURE__*/__webpack_require__.n(_wordpress_api_fetch__WEBPACK_IMPORTED_MODULE_3__);
-/* harmony import */ var _wordpress_core_data__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! @wordpress/core-data */ "@wordpress/core-data");
-/* harmony import */ var _wordpress_core_data__WEBPACK_IMPORTED_MODULE_4___default = /*#__PURE__*/__webpack_require__.n(_wordpress_core_data__WEBPACK_IMPORTED_MODULE_4__);
-/* harmony import */ var _wordpress_data__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! @wordpress/data */ "@wordpress/data");
-/* harmony import */ var _wordpress_data__WEBPACK_IMPORTED_MODULE_5___default = /*#__PURE__*/__webpack_require__.n(_wordpress_data__WEBPACK_IMPORTED_MODULE_5__);
-/* harmony import */ var _wordpress_element__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! @wordpress/element */ "@wordpress/element");
-/* harmony import */ var _wordpress_element__WEBPACK_IMPORTED_MODULE_6___default = /*#__PURE__*/__webpack_require__.n(_wordpress_element__WEBPACK_IMPORTED_MODULE_6__);
-/* harmony import */ var react_jsx_runtime__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! react/jsx-runtime */ "react/jsx-runtime");
-/* harmony import */ var react_jsx_runtime__WEBPACK_IMPORTED_MODULE_7___default = /*#__PURE__*/__webpack_require__.n(react_jsx_runtime__WEBPACK_IMPORTED_MODULE_7__);
-
+/* harmony import */ var _wordpress_core_data__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! @wordpress/core-data */ "@wordpress/core-data");
+/* harmony import */ var _wordpress_core_data__WEBPACK_IMPORTED_MODULE_3___default = /*#__PURE__*/__webpack_require__.n(_wordpress_core_data__WEBPACK_IMPORTED_MODULE_3__);
+/* harmony import */ var _wordpress_data__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! @wordpress/data */ "@wordpress/data");
+/* harmony import */ var _wordpress_data__WEBPACK_IMPORTED_MODULE_4___default = /*#__PURE__*/__webpack_require__.n(_wordpress_data__WEBPACK_IMPORTED_MODULE_4__);
+/* harmony import */ var _wordpress_element__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! @wordpress/element */ "@wordpress/element");
+/* harmony import */ var _wordpress_element__WEBPACK_IMPORTED_MODULE_5___default = /*#__PURE__*/__webpack_require__.n(_wordpress_element__WEBPACK_IMPORTED_MODULE_5__);
+/* harmony import */ var react_jsx_runtime__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! react/jsx-runtime */ "react/jsx-runtime");
+/* harmony import */ var react_jsx_runtime__WEBPACK_IMPORTED_MODULE_6___default = /*#__PURE__*/__webpack_require__.n(react_jsx_runtime__WEBPACK_IMPORTED_MODULE_6__);
 
 
 
@@ -47,9 +44,7 @@ function Edit({
     label,
     showLabel
   } = attributes;
-  const [metaValues, setMetaValues] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_6__.useState)([]);
-  const [isLoadingValues, setIsLoadingValues] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_6__.useState)(false);
-  const [metaFieldOptions, setMetaFieldOptions] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_6__.useState)([]);
+  const [metaFieldOptions, setMetaFieldOptions] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_5__.useState)([]);
 
   // Get post types from query context
   let contextPostTypes = (context.query.postType || '').split(',').map(type => type.trim());
@@ -60,10 +55,10 @@ function Edit({
   }
 
   // Fetch a single post for each post type to get meta fields
-  const postsData = (0,_wordpress_data__WEBPACK_IMPORTED_MODULE_5__.useSelect)(select => {
+  const postsData = (0,_wordpress_data__WEBPACK_IMPORTED_MODULE_4__.useSelect)(select => {
     const {
       getEntityRecords
-    } = select(_wordpress_core_data__WEBPACK_IMPORTED_MODULE_4__.store);
+    } = select(_wordpress_core_data__WEBPACK_IMPORTED_MODULE_3__.store);
     const data = {};
     contextPostTypes.forEach(postType => {
       data[postType] = getEntityRecords('postType', postType, {
@@ -74,46 +69,62 @@ function Edit({
     return data;
   }, [contextPostTypes]);
 
-  // Extract meta fields from fetched posts
-  const fetchMetaFields = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_6__.useCallback)(async () => {
-    const fields = [];
-    const cardinalityCache = {};
-    const metaKeySet = new Set();
-    for (const postType of contextPostTypes) {
+  // Get meta cardinality and values from the data store
+  const {
+    metaCardinalities,
+    metaValues,
+    isLoadingValues
+  } = (0,_wordpress_data__WEBPACK_IMPORTED_MODULE_4__.useSelect)(select => {
+    const metaStore = select('query-filter/meta');
+    const cardinalities = {};
+
+    // Get cardinality for all meta keys across all post types
+    contextPostTypes.forEach(postType => {
       const posts = postsData[postType];
       if (posts && posts.length > 0 && posts[0].meta) {
-        const metaKeys = Object.keys(posts[0].meta);
-        for (const key of metaKeys) {
-          // Skip if we've already processed this key
-          if (metaKeySet.has(key)) {
-            continue;
+        Object.keys(posts[0].meta).forEach(key => {
+          if (!cardinalities[key]) {
+            cardinalities[key] = metaStore?.getMetaCardinality(postType, key);
           }
-          metaKeySet.add(key);
-
-          // Check cardinality
-          const cacheKey = `meta_cardinality_${postType}_${key}`;
-          let cardinality = cardinalityCache[cacheKey];
-          if (!cardinality) {
-            try {
-              const cardinalityResponse = await _wordpress_api_fetch__WEBPACK_IMPORTED_MODULE_3___default()({
-                path: `/query-filter/v1/meta-cardinality?post_type=${postType}&meta_key=${key}`
-              });
-              cardinality = cardinalityResponse?.cardinality || 0;
-              cardinalityCache[cacheKey] = cardinality;
-            } catch (error) {
-              cardinality = 999; // Assume too many if error
-            }
-          }
-          const tooManyValues = cardinality > 50;
-          fields.push({
-            label: tooManyValues ? `${key} (too many values)` : key,
-            value: key,
-            disabled: tooManyValues,
-            cardinality
-          });
-        }
+        });
       }
-    }
+    });
+
+    // Get meta values for selected key
+    const values = metaKey && contextPostTypes.length > 0 ? metaStore?.getMetaValues(contextPostTypes, metaKey) : [];
+    return {
+      metaCardinalities: cardinalities,
+      metaValues: values || [],
+      isLoadingValues: !metaKey || values === undefined
+    };
+  }, [contextPostTypes, postsData, metaKey]);
+
+  // Extract meta fields from posts and combine with cardinality
+  const allMetaKeys = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_5__.useMemo)(() => {
+    const metaKeySet = new Set();
+    contextPostTypes.forEach(postType => {
+      const posts = postsData[postType];
+      if (posts && posts.length > 0 && posts[0].meta) {
+        Object.keys(posts[0].meta).forEach(key => {
+          metaKeySet.add(key);
+        });
+      }
+    });
+    return Array.from(metaKeySet);
+  }, [postsData, contextPostTypes]);
+
+  // Build field options when meta keys or cardinalities change
+  (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_5__.useEffect)(() => {
+    const fields = allMetaKeys.map(key => {
+      const cardinality = metaCardinalities[key] || 0;
+      const tooManyValues = cardinality > 50;
+      return {
+        label: tooManyValues ? `${key} (too many values)` : key,
+        value: key,
+        disabled: tooManyValues,
+        cardinality
+      };
+    });
 
     // Sort fields: enabled first, then by label
     fields.sort((a, b) => {
@@ -123,72 +134,12 @@ function Edit({
       return a.label.localeCompare(b.label);
     });
     setMetaFieldOptions(fields);
-  }, [postsData, contextPostTypes]);
-  (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_6__.useEffect)(() => {
-    // Only fetch when we have posts data
-    const hasAllPosts = contextPostTypes.every(postType => postsData[postType] !== undefined);
-    if (hasAllPosts && contextPostTypes.length > 0) {
-      fetchMetaFields();
-    }
-  }, [fetchMetaFields, postsData, contextPostTypes]);
-
-  // Fetch meta values when metaKey changes
-  const fetchMetaValues = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_6__.useCallback)(async () => {
-    if (!metaKey || isLoadingValues) {
-      return;
-    }
-    setIsLoadingValues(true);
-    const cacheKey = `meta_values_${contextPostTypes.join('_')}_${metaKey}`;
-    const cacheExpiry = 60 * 60 * 1000; // 1 hour
-
-    // Check localStorage cache
-    try {
-      const cached = localStorage.getItem(cacheKey);
-      if (cached) {
-        const {
-          values,
-          timestamp
-        } = JSON.parse(cached);
-        if (Date.now() - timestamp < cacheExpiry) {
-          setMetaValues(values);
-          setIsLoadingValues(false);
-          return;
-        }
-      }
-    } catch (error) {
-      // Cache read error, continue with fetch
-    }
-
-    // Fetch from API
-    try {
-      const response = await _wordpress_api_fetch__WEBPACK_IMPORTED_MODULE_3___default()({
-        path: `/query-filter/v1/meta-values?post_type=${contextPostTypes.join(',')}&meta_key=${metaKey}`
-      });
-      const values = response?.values || [];
-      setMetaValues(values);
-
-      // Cache the results
-      try {
-        localStorage.setItem(cacheKey, JSON.stringify({
-          values,
-          timestamp: Date.now()
-        }));
-      } catch (error) {
-        // Cache write error, not critical
-      }
-    } catch (error) {
-      setMetaValues([]);
-    }
-    setIsLoadingValues(false);
-  }, [isLoadingValues, metaKey, contextPostTypes]);
-  (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_6__.useEffect)(() => {
-    fetchMetaValues();
-  }, [fetchMetaValues]);
-  return /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_7__.jsxs)(react_jsx_runtime__WEBPACK_IMPORTED_MODULE_7__.Fragment, {
-    children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_7__.jsx)(_wordpress_block_editor__WEBPACK_IMPORTED_MODULE_1__.InspectorControls, {
-      children: /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_7__.jsxs)(_wordpress_components__WEBPACK_IMPORTED_MODULE_2__.PanelBody, {
+  }, [allMetaKeys, metaCardinalities]);
+  return /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_6__.jsxs)(react_jsx_runtime__WEBPACK_IMPORTED_MODULE_6__.Fragment, {
+    children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_6__.jsx)(_wordpress_block_editor__WEBPACK_IMPORTED_MODULE_1__.InspectorControls, {
+      children: /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_6__.jsxs)(_wordpress_components__WEBPACK_IMPORTED_MODULE_2__.PanelBody, {
         title: (0,_wordpress_i18n__WEBPACK_IMPORTED_MODULE_0__.__)('Meta Field Settings', 'query-filter'),
-        children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_7__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_2__.SelectControl, {
+        children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_6__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_2__.SelectControl, {
           label: (0,_wordpress_i18n__WEBPACK_IMPORTED_MODULE_0__.__)('Select Meta Field', 'query-filter'),
           value: metaKey,
           options: [{
@@ -202,20 +153,20 @@ function Edit({
               label: selectedField?.label?.replace(' (too many values)', '') || ''
             });
           }
-        }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_7__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_2__.TextControl, {
+        }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_6__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_2__.TextControl, {
           label: (0,_wordpress_i18n__WEBPACK_IMPORTED_MODULE_0__.__)('Label', 'query-filter'),
           value: label,
           help: (0,_wordpress_i18n__WEBPACK_IMPORTED_MODULE_0__.__)('If empty then no label will be shown', 'query-filter'),
           onChange: newLabel => setAttributes({
             label: newLabel
           })
-        }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_7__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_2__.ToggleControl, {
+        }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_6__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_2__.ToggleControl, {
           label: (0,_wordpress_i18n__WEBPACK_IMPORTED_MODULE_0__.__)('Show Label', 'query-filter'),
           checked: showLabel,
           onChange: newShowLabel => setAttributes({
             showLabel: newShowLabel
           })
-        }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_7__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_2__.TextControl, {
+        }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_6__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_2__.TextControl, {
           label: (0,_wordpress_i18n__WEBPACK_IMPORTED_MODULE_0__.__)('Empty Choice Label', 'query-filter'),
           value: emptyLabel,
           placeholder: (0,_wordpress_i18n__WEBPACK_IMPORTED_MODULE_0__.__)('All', 'query-filter'),
@@ -224,28 +175,160 @@ function Edit({
           })
         })]
       })
-    }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_7__.jsxs)("div", {
+    }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_6__.jsxs)("div", {
       ...(0,_wordpress_block_editor__WEBPACK_IMPORTED_MODULE_1__.useBlockProps)({
         className: 'wp-block-query-filter'
       }),
-      children: [showLabel && label && /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_7__.jsx)("label", {
+      children: [showLabel && label && /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_6__.jsx)("label", {
         className: "wp-block-query-filter-meta__label wp-block-query-filter__label",
         children: label
-      }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_7__.jsxs)("select", {
+      }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_6__.jsxs)("select", {
         className: "wp-block-query-filter-meta__select wp-block-query-filter__select",
         inert: "true",
-        children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_7__.jsx)("option", {
+        children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_6__.jsx)("option", {
           children: emptyLabel || (0,_wordpress_i18n__WEBPACK_IMPORTED_MODULE_0__.__)('All', 'query-filter')
-        }), isLoadingValues && /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_7__.jsxs)("option", {
+        }), isLoadingValues && /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_6__.jsxs)("option", {
           disabled: true,
-          children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_7__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_2__.Spinner, {}), ' ', (0,_wordpress_i18n__WEBPACK_IMPORTED_MODULE_0__.__)('Loading values...', 'query-filter')]
-        }), !isLoadingValues && metaValues.map((value, index) => /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_7__.jsx)("option", {
+          children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_6__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_2__.Spinner, {}), ' ', (0,_wordpress_i18n__WEBPACK_IMPORTED_MODULE_0__.__)('Loading values...', 'query-filter')]
+        }), !isLoadingValues && metaValues.map((value, index) => /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_6__.jsx)("option", {
           children: value
         }, index))]
       })]
     })]
   });
 }
+
+/***/ }),
+
+/***/ "./src/store/index.js":
+/*!****************************!*\
+  !*** ./src/store/index.js ***!
+  \****************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   "default": () => (__WEBPACK_DEFAULT_EXPORT__)
+/* harmony export */ });
+/* harmony import */ var _wordpress_data__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! @wordpress/data */ "@wordpress/data");
+/* harmony import */ var _wordpress_data__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(_wordpress_data__WEBPACK_IMPORTED_MODULE_0__);
+/* harmony import */ var _wordpress_api_fetch__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! @wordpress/api-fetch */ "@wordpress/api-fetch");
+/* harmony import */ var _wordpress_api_fetch__WEBPACK_IMPORTED_MODULE_1___default = /*#__PURE__*/__webpack_require__.n(_wordpress_api_fetch__WEBPACK_IMPORTED_MODULE_1__);
+
+
+const DEFAULT_STATE = {
+  metaCardinality: {},
+  metaValues: {}
+};
+const actions = {
+  setMetaCardinality(postType, metaKey, cardinality) {
+    return {
+      type: 'SET_META_CARDINALITY',
+      postType,
+      metaKey,
+      cardinality
+    };
+  },
+  setMetaValues(postTypes, metaKey, values) {
+    return {
+      type: 'SET_META_VALUES',
+      postTypes,
+      metaKey,
+      values
+    };
+  },
+  fetchMetaCardinality(postType, metaKey) {
+    return async ({
+      dispatch
+    }) => {
+      try {
+        const response = await _wordpress_api_fetch__WEBPACK_IMPORTED_MODULE_1___default()({
+          path: `/query-filter/v1/meta-cardinality?post_type=${postType}&meta_key=${metaKey}`
+        });
+        const cardinality = response?.cardinality || 0;
+        dispatch.setMetaCardinality(postType, metaKey, cardinality);
+        return cardinality;
+      } catch (error) {
+        // Assume too many if error
+        dispatch.setMetaCardinality(postType, metaKey, 999);
+        return 999;
+      }
+    };
+  },
+  fetchMetaValues(postTypes, metaKey) {
+    return async ({
+      dispatch
+    }) => {
+      try {
+        const response = await _wordpress_api_fetch__WEBPACK_IMPORTED_MODULE_1___default()({
+          path: `/query-filter/v1/meta-values?post_type=${postTypes.join(',')}&meta_key=${metaKey}`
+        });
+        const values = response?.values || [];
+        dispatch.setMetaValues(postTypes, metaKey, values);
+        return values;
+      } catch (error) {
+        dispatch.setMetaValues(postTypes, metaKey, []);
+        return [];
+      }
+    };
+  }
+};
+const selectors = {
+  getMetaCardinality(state, postType, metaKey) {
+    const key = `${postType}_${metaKey}`;
+    return state.metaCardinality[key];
+  },
+  getMetaValues(state, postTypes, metaKey) {
+    const key = `${postTypes.join('_')}_${metaKey}`;
+    return state.metaValues[key];
+  }
+};
+const reducer = (state = DEFAULT_STATE, action) => {
+  switch (action.type) {
+    case 'SET_META_CARDINALITY':
+      {
+        const key = `${action.postType}_${action.metaKey}`;
+        return {
+          ...state,
+          metaCardinality: {
+            ...state.metaCardinality,
+            [key]: action.cardinality
+          }
+        };
+      }
+    case 'SET_META_VALUES':
+      {
+        const key = `${action.postTypes.join('_')}_${action.metaKey}`;
+        return {
+          ...state,
+          metaValues: {
+            ...state.metaValues,
+            [key]: action.values
+          }
+        };
+      }
+    default:
+      return state;
+  }
+};
+const resolvers = {
+  *getMetaCardinality(postType, metaKey) {
+    const cardinality = yield actions.fetchMetaCardinality(postType, metaKey);
+    return cardinality;
+  },
+  *getMetaValues(postTypes, metaKey) {
+    const values = yield actions.fetchMetaValues(postTypes, metaKey);
+    return values;
+  }
+};
+const store = (0,_wordpress_data__WEBPACK_IMPORTED_MODULE_0__.createReduxStore)('query-filter/meta', {
+  reducer,
+  actions,
+  selectors,
+  resolvers
+});
+(0,_wordpress_data__WEBPACK_IMPORTED_MODULE_0__.register)(store);
+/* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (store);
 
 /***/ }),
 
@@ -415,6 +498,8 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _wordpress_blocks__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! @wordpress/blocks */ "@wordpress/blocks");
 /* harmony import */ var _wordpress_blocks__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(_wordpress_blocks__WEBPACK_IMPORTED_MODULE_0__);
 /* harmony import */ var _edit__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./edit */ "./src/meta/edit.js");
+/* harmony import */ var _store__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ../store */ "./src/store/index.js");
+
 
 
 (0,_wordpress_blocks__WEBPACK_IMPORTED_MODULE_0__.registerBlockType)('query-filter/meta', {
