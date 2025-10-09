@@ -19,7 +19,6 @@ function bootstrap() : void {
 	// General hooks.
 	add_filter( 'query_loop_block_query_vars', __NAMESPACE__ . '\\filter_query_loop_block_query_vars', 10, 3 );
 	add_action( 'pre_get_posts', __NAMESPACE__ . '\\pre_get_posts_transpose_query_vars' );
-	add_filter( 'aql_query_vars', __NAMESPACE__ . '\\aql_enable_date_functions', 10, 3 );
 	add_filter( 'block_type_metadata', __NAMESPACE__ . '\\filter_block_type_metadata', 10 );
 	add_action( 'init', __NAMESPACE__ . '\\register_blocks' );
 	add_action( 'enqueue_block_assets', __NAMESPACE__ . '\\action_wp_enqueue_scripts' );
@@ -248,45 +247,6 @@ function render_block_query( $block_content, $block ) {
 	$block_content->set_attribute( 'data-wp-router-region', 'query-' . ( $block['attrs']['queryId'] ?? 0 ) );
 
 	return (string) $block_content;
-}
-
-/**
- * Enable some dynamic date functions for meta query with Advanced Query Loop.
- *
- * @param array   $query_args  Arguments to be passed to WP_Query.
- * @param array   $block_query The query attribute retrieved from the block.
- * @param boolean $inherited   Whether the query is being inherited.
- */
-function aql_enable_date_functions( $query_args, $block_query, $inherited ) {
-
-	if ( isset( $query_args['meta_query'] ) ) {
-		$query_args['meta_query'] = array_map( function ( $meta_query ) {
-			$meta_query['value'] = str_replace(
-				[
-					'NOW()',
-					'HOUR()',
-					'DAY()',
-					'MONTH()',
-					'YEAR()',
-					'WEEK()',
-					'UNIX_TIMESTAMP()',
-				],
-				[
-					date( 'Y-m-d H:i:s' ),
-					intval( date( 'H' ) ),
-					intval( date( 'd' ) ),
-					intval( date( 'm' ) ),
-					intval( date( 'Y' ) ),
-					intval( date( 'W' ) ),
-					time(),
-				],
-				$meta_query['value']
-			);
-			return $meta_query;
-		}, $query_args['meta_query'] );
-	}
-
-	return $query_args;
 }
 
 /**
