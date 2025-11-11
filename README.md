@@ -22,6 +22,14 @@ Easy to use and lightweight, built using the WordPress Interactivity API.
 
 ## Installation
 
+### Using Composer
+
+This plugin is available on packagist.
+
+`composer require humanmade/query-filter`
+
+### Manually from Github. 
+
 1. Download the plugin from the [GitHub repository](https://github.com/humanmade/query-filter).
 2. Upload the plugin to your site's `wp-content/plugins` directory.
 3. Activate the plugin from the WordPress admin.
