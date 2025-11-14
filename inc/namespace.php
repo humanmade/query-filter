@@ -28,6 +28,11 @@ function bootstrap() : void {
 
 	// Query.
 	add_filter( 'render_block_core/query', __NAMESPACE__ . '\\render_block_query', 10, 3 );
+
+	// Custom field search.
+	add_filter( 'posts_join', __NAMESPACE__ . '\\cf_search_join', 10, 2 );
+	add_filter( 'posts_where', __NAMESPACE__ . '\\cf_search_where', 10, 2 );
+	add_filter( 'posts_distinct', __NAMESPACE__ . '\\cf_search_distinct', 10, 2 );
 }
 
 /**
