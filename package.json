@@ -8,11 +8,15 @@
 		"format": "wp-scripts format",
 		"lint:css": "wp-scripts lint-style --fix",
 		"lint:js": "wp-scripts lint-js",
-		"test": "echo \"Error: no test specified\" && exit 1"
+		"test": "echo \"Error: no test specified\" && exit 1",
+		"wp-env": "wp-env"
 	},
 	"author": "Human Made Limited",
 	"license": "GPL-2.0-or-later",
 	"dependencies": {
 		"@wordpress/scripts": "^28.6.0"
+	},
+	"devDependencies": {
+		"@wordpress/env": "^10.25.0"
 	}
 }
