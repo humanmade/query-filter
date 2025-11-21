@@ -7,24 +7,48 @@ $id = 'query-filter-' . wp_generate_uuid4();
 
 $taxonomy = get_taxonomy( $attributes['taxonomy'] );
 
-if ( $block->context['query']['inherit'] ) {
-	$query_var = sprintf( 'query-%s', $attributes['taxonomy'] );
-	$page_var = 'page';
-	$base_url = str_replace( '/page/' . get_query_var( 'paged' ), '', remove_query_arg( [ $query_var, $page_var ] ) );
-} else {
+if ( empty( $block->context['query']['inherit'] ) ) {
 	$query_id = $block->context['queryId'] ?? 0;
 	$query_var = sprintf( 'query-%d-%s', $query_id, $attributes['taxonomy'] );
 	$page_var = isset( $block->context['queryId'] ) ? 'query-' . $block->context['queryId'] . '-page' : 'query-page';
 	$base_url = remove_query_arg( [ $query_var, $page_var ] );
+} else {
+	$query_var = sprintf( 'query-%s', $attributes['taxonomy'] );
+	$page_var = 'page';
+	$base_url = str_replace( '/page/' . get_query_var( 'paged' ), '', remove_query_arg( [ $query_var, $page_var ] ) );
 }
 
-$terms = get_terms( [
-	'hide_empty' => true,
-	'taxonomy' => $attributes['taxonomy'],
-	'number' => 100,
-] );
+$terms = [];
 
-if ( is_wp_error( $terms ) || empty( $terms ) ) {
+if ( ! empty( $attributes['limitToCurrentResults'] ) ) {
+	$post_ids = HM\Query_Loop_Filter\get_query_loop_post_ids_for_block( $block );
+
+	if ( ! empty( $post_ids ) ) {
+		$terms = wp_get_object_terms(
+			$post_ids,
+			$attributes['taxonomy'],
+			[
+				'orderby' => 'name',
+				'order' => 'ASC',
+				'number' => 100,
+			]
+		);
+	}
+
+	if ( is_wp_error( $terms ) ) {
+		return;
+	}
+}
+
+if ( empty( $terms ) ) {
+	$terms = get_terms( [
+		'hide_empty' => true,
+		'taxonomy' => $attributes['taxonomy'],
+		'number' => 100,
+	] );
+}
+
+if ( is_wp_error( $terms ) || ( empty( $terms ) && empty( $attributes['limitToCurrentResults'] ) ) ) {
 	return;
 }
 ?>

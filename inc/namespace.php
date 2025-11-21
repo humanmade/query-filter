@@ -19,6 +19,7 @@ function bootstrap() : void {
 	// General hooks.
 	add_filter( 'query_loop_block_query_vars', __NAMESPACE__ . '\\filter_query_loop_block_query_vars', 10, 3 );
 	add_action( 'pre_get_posts', __NAMESPACE__ . '\\pre_get_posts_transpose_query_vars' );
+	add_filter( 'the_posts', __NAMESPACE__ . '\\store_query_loop_posts', 10, 2 );
 	add_filter( 'block_type_metadata', __NAMESPACE__ . '\\filter_block_type_metadata', 10 );
 	add_action( 'init', __NAMESPACE__ . '\\register_blocks' );
 	add_action( 'enqueue_block_assets', __NAMESPACE__ . '\\action_wp_enqueue_scripts' );
@@ -220,4 +221,65 @@ function render_block_query( $block_content, $block ) {
 	$block_content->set_attribute( 'data-wp-router-region', 'query-' . ( $block['attrs']['queryId'] ?? 0 ) );
 
 	return (string) $block_content;
+}
+
+/**
+ * Cache the post IDs for each rendered query loop.
+ *
+ * @param array    $posts Array of post objects.
+ * @param WP_Query $query Current WP_Query object.
+ * @return array
+ */
+function store_query_loop_posts( array $posts, WP_Query $query ) : array {
+	$query_id = $query->get( 'query_id', null );
+
+	if ( is_null( $query_id ) ) {
+		return $posts;
+	}
+
+	$cache = &query_loop_posts_cache();
+	$cache[ $query_id ] = array_map( 'intval', wp_list_pluck( $posts, 'ID' ) );
+
+	return $posts;
+}
+
+/**
+ * Retrieve the post IDs associated with the provided block's query.
+ *
+ * @param \WP_Block $block Block instance.
+ * @return array<int>
+ */
+function get_query_loop_post_ids_for_block( \WP_Block $block ) : array {
+	if ( empty( $block->context['query'] ) ) {
+		return [];
+	}
+
+	if ( ! empty( $block->context['query']['inherit'] ) ) {
+		global $wp_query;
+
+		return array_map( 'intval', wp_list_pluck( $wp_query->posts ?? [], 'ID' ) );
+	}
+
+	$query_id = $block->context['queryId'] ?? null;
+
+	if ( is_null( $query_id ) ) {
+		return [];
+	}
+
+	$cache = &query_loop_posts_cache();
+
+	return $cache[ $query_id ] ?? [];
+}
+
+/**
+ * Helper to store post IDs for each query loop.
+ *
+ * @return array<int, array<int>>
+ */
+function &query_loop_posts_cache() : array {
+	if ( ! isset( $GLOBALS['hm_query_loop_filter_query_posts'] ) || ! is_array( $GLOBALS['hm_query_loop_filter_query_posts'] ) ) {
+		$GLOBALS['hm_query_loop_filter_query_posts'] = [];
+	}
+
+	return $GLOBALS['hm_query_loop_filter_query_posts'];
 }
