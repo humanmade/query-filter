@@ -53,6 +53,7 @@ function action_wp_enqueue_scripts() : void {
 function register_blocks() : void {
 	register_block_type( ROOT_DIR . '/build/taxonomy' );
 	register_block_type( ROOT_DIR . '/build/post-type' );
+	register_block_type( ROOT_DIR . '/build/sort' );
 }
 
 /**
@@ -83,11 +84,41 @@ function pre_get_posts_transpose_query_vars( WP_Query $query ) : void {
 		return;
 	}
 
-	$prefix = $query->is_main_query() ? 'query-' : "query-{$query_id}-";
+	$current_query_identifier = $query->is_main_query() ? 'main' : (string) $query_id;
+	$requested_query_id = sanitize_text_field(
+		wp_unslash(
+			$_GET['query-post_id']
+				?? ( $_GET['query-id'] ?? '' )
+		)
+	);
+	$legacy_prefix = $query->is_main_query() ? 'query-' : "query-{$query_id}-";
+	$use_legacy_params = false;
+
+	if ( 'main' !== $current_query_identifier && empty( $requested_query_id ) ) {
+		foreach ( array_keys( $_GET ) as $key ) {
+			if ( strpos( $key, $legacy_prefix ) === 0 ) {
+				$use_legacy_params = true;
+				break;
+			}
+		}
+	}
+
+	if ( ! $use_legacy_params ) {
+		if ( 'main' !== $current_query_identifier && $requested_query_id !== $current_query_identifier ) {
+			return;
+		}
+
+		if ( 'main' === $current_query_identifier && $requested_query_id && 'main' !== $requested_query_id ) {
+			return;
+		}
+	}
+
 	$tax_query = [];
 	$valid_keys = [
 		'post_type' => $query->is_search() ? 'any' : 'post',
 		's' => '',
+		'orderby' => '',
+		'order' => '',
 	];
 
 	// Preserve valid params for later retrieval.
@@ -99,32 +130,110 @@ function pre_get_posts_transpose_query_vars( WP_Query $query ) : void {
 	}
 
 	// Map get params to this query.
-	foreach ( $_GET as $key => $value ) {
-		if ( strpos( $key, $prefix ) === 0 ) {
-			$key = str_replace( $prefix, '', $key );
+	if ( $use_legacy_params ) {
+		foreach ( $_GET as $key => $value ) {
+			if ( strpos( $key, $legacy_prefix ) !== 0 ) {
+				continue;
+			}
+
+			$param = str_replace( $legacy_prefix, '', $key );
 			$value = sanitize_text_field( urldecode( wp_unslash( $value ) ) );
 
-			// Handle taxonomies specifically.
-			if ( get_taxonomy( $key ) ) {
+			if ( 'page' === $param ) {
+				$paged = max( 1, absint( $value ) );
+				$query->set( 'paged', $paged );
+				continue;
+			}
+
+			if ( 'post_orderby' === $param ) {
+				$parts = explode( ':', $value );
+				$orderby = sanitize_key( $parts[0] ?? '' );
+				$order = strtoupper( sanitize_text_field( $parts[1] ?? '' ) );
+
+				if ( ! empty( $orderby ) ) {
+					$query->set( 'orderby', $orderby );
+				}
+
+				if ( in_array( $order, [ 'ASC', 'DESC' ], true ) ) {
+					$query->set( 'order', $order );
+				}
+
+				continue;
+			}
+
+			if ( get_taxonomy( $param ) ) {
 				$tax_query['relation'] = 'AND';
 				$tax_query[] = [
-					'taxonomy' => $key,
+					'taxonomy' => $param,
 					'terms' => [ $value ],
 					'field' => 'slug',
 				];
-			} else {
-				// Other options should map directly to query vars.
-				$key = sanitize_key( $key );
+				continue;
+			}
 
-				if ( ! in_array( $key, array_keys( $valid_keys ), true ) ) {
-					continue;
+			$param = sanitize_key( $param );
+
+			if ( ! array_key_exists( $param, $valid_keys ) ) {
+				continue;
+			}
+
+			$query->set(
+				$param,
+				$value
+			);
+		}
+	} else {
+		foreach ( $_GET as $key => $value ) {
+			if ( strpos( $key, 'query-' ) !== 0 || in_array( $key, [ 'query-post_id', 'query-id' ], true ) ) {
+				continue;
+			}
+
+			$value = sanitize_text_field( urldecode( wp_unslash( $value ) ) );
+			$param = substr( $key, 6 );
+
+			if ( 'page' === $param ) {
+				$paged = max( 1, absint( $value ) );
+				$query->set( 'paged', $paged );
+				continue;
+			}
+
+			if ( get_taxonomy( $param ) ) {
+				$tax_query['relation'] = 'AND';
+				$tax_query[] = [
+					'taxonomy' => $param,
+					'terms' => [ $value ],
+					'field' => 'slug',
+				];
+				continue;
+			}
+
+			if ( 'post_orderby' === $param ) {
+				$parts = explode( ':', $value );
+				$orderby = sanitize_key( $parts[0] ?? '' );
+				$order = strtoupper( sanitize_text_field( $parts[1] ?? '' ) );
+
+				if ( ! empty( $orderby ) ) {
+					$query->set( 'orderby', $orderby );
 				}
 
-				$query->set(
-					$key,
-					$value
-				);
+				if ( in_array( $order, [ 'ASC', 'DESC' ], true ) ) {
+					$query->set( 'order', $order );
+				}
+
+				continue;
 			}
+
+			// Other options should map directly to query vars.
+			$param = sanitize_key( $param );
+
+			if ( ! array_key_exists( $param, $valid_keys ) ) {
+				continue;
+			}
+
+			$query->set(
+				$param,
+				$value
+			);
 		}
 	}
 
@@ -173,11 +282,27 @@ function render_block_search( string $block_content, array $block, \WP_Block $in
 
 	wp_enqueue_script_module( 'query-filter-taxonomy-view-script-module' );
 
-	$query_var = empty( $instance->context['query']['inherit'] )
-		? sprintf( 'query-%d-s', $instance->context['queryId'] ?? 0 )
-		: 's';
+	$target_query_id = empty( $instance->context['query']['inherit'] )
+		? (string) ( $instance->context['queryId'] ?? 0 )
+		: 'main';
+	$query_var = 'query-s';
 
-	$action = str_replace( '/page/'. get_query_var( 'paged', 1 ), '', add_query_arg( [ $query_var => '' ] ) );
+	$action = remove_query_arg( [ $query_var, 'query-page', 'query-post_id', 'query-id' ] );
+	if ( ! empty( $instance->context['query']['inherit'] ) ) {
+		$current_paged = (int) get_query_var( 'paged', 1 );
+		if ( $current_paged > 1 ) {
+			$action = str_replace( '/page/' . $current_paged, '', $action );
+		}
+		$action = remove_query_arg( [ 'page' ], $action );
+	}
+
+	$action = add_query_arg(
+		[
+			'query-post_id' => $target_query_id,
+			$query_var => '',
+		],
+		$action
+	);
 
 	// Note sanitize_text_field trims whitespace from start/end of string causing unexpected behaviour.
 	$value = wp_unslash( $_GET[ $query_var ] ?? '' );
@@ -282,4 +407,24 @@ function &query_loop_posts_cache() : array {
 	}
 
 	return $GLOBALS['hm_query_loop_filter_query_posts'];
+}
+
+/**
+ * Ensure certain query parameters remain readable in URLs.
+ *
+ * @param string $url URL to normalize.
+ * @return string
+ */
+function normalize_query_filter_url( string $url ) : string {
+	if ( false === strpos( $url, 'query-post_orderby=' ) ) {
+		return $url;
+	}
+
+	return preg_replace_callback(
+		'/(query-post_orderby=)([^&#]+)/',
+		static function ( $matches ) {
+			return $matches[1] . rawurldecode( $matches[2] );
+		},
+		$url
+	);
 }
