@@ -19,6 +19,10 @@ function bootstrap() : void {
 	// General hooks.
 	add_filter( 'query_loop_block_query_vars', __NAMESPACE__ . '\\filter_query_loop_block_query_vars', 10, 3 );
 	add_action( 'pre_get_posts', __NAMESPACE__ . '\\pre_get_posts_transpose_query_vars' );
+	add_action( 'template_redirect', __NAMESPACE__ . '\\maybe_redirect_taxonomy_query_page' );
+	add_action( 'enqueue_block_editor_assets', __NAMESPACE__ . '\\enqueue_block_editor_assets' );
+	add_filter( 'render_block', __NAMESPACE__ . '\\filter_inline_taxonomy_text_in_block', 10, 2 );
+	add_filter( 'the_content', __NAMESPACE__ . '\\filter_inline_taxonomy_text_in_content', 12 );
 	add_filter( 'the_posts', __NAMESPACE__ . '\\store_query_loop_posts', 10, 2 );
 	add_filter( 'block_type_metadata', __NAMESPACE__ . '\\filter_block_type_metadata', 10 );
 	add_action( 'init', __NAMESPACE__ . '\\register_blocks' );
@@ -47,6 +51,29 @@ function action_wp_enqueue_scripts() : void {
 }
 
 /**
+ * Enqueue editor-only assets for block/format features.
+ *
+ * @return void
+ */
+function enqueue_block_editor_assets() : void {
+	$asset_path = ROOT_DIR . '/build/taxonomy-text/index.asset.php';
+
+	if ( ! file_exists( $asset_path ) ) {
+		return;
+	}
+
+	$asset = include $asset_path;
+
+	wp_enqueue_script(
+		'query-filter-taxonomy-text',
+		plugins_url( '/build/taxonomy-text/index.js', PLUGIN_FILE ),
+		$asset['dependencies'],
+		$asset['version'],
+		true
+	);
+}
+
+/**
  * Fires after WordPress has finished loading but before any headers are sent.
  *
  */
@@ -54,6 +81,7 @@ function register_blocks() : void {
 	register_block_type( ROOT_DIR . '/build/taxonomy' );
 	register_block_type( ROOT_DIR . '/build/post-type' );
 	register_block_type( ROOT_DIR . '/build/sort' );
+	register_block_type( ROOT_DIR . '/build/taxonomy-text' );
 }
 
 /**
@@ -114,6 +142,7 @@ function pre_get_posts_transpose_query_vars( WP_Query $query ) : void {
 	}
 
 	$tax_query = [];
+	$page_param_handled = false;
 	$valid_keys = [
 		'post_type' => $query->is_search() ? 'any' : 'post',
 		's' => '',
@@ -142,6 +171,7 @@ function pre_get_posts_transpose_query_vars( WP_Query $query ) : void {
 			if ( 'page' === $param ) {
 				$paged = max( 1, absint( $value ) );
 				$query->set( 'paged', $paged );
+				$page_param_handled = true;
 				continue;
 			}
 
@@ -194,6 +224,7 @@ function pre_get_posts_transpose_query_vars( WP_Query $query ) : void {
 			if ( 'page' === $param ) {
 				$paged = max( 1, absint( $value ) );
 				$query->set( 'paged', $paged );
+				$page_param_handled = true;
 				continue;
 			}
 
@@ -234,6 +265,22 @@ function pre_get_posts_transpose_query_vars( WP_Query $query ) : void {
 				$param,
 				$value
 			);
+		}
+	}
+
+	if ( ! $page_param_handled ) {
+		$path_paged = (int) get_query_var( 'paged', 0 );
+
+		if ( $path_paged > 1 ) {
+			$should_use_path_paged = ( 'main' === $current_query_identifier );
+
+			if ( ! $should_use_path_paged && ! $use_legacy_params ) {
+				$should_use_path_paged = (string) $current_query_identifier === $requested_query_id;
+			}
+
+			if ( $should_use_path_paged && ! (int) $query->get( 'paged' ) ) {
+				$query->set( 'paged', $path_paged );
+			}
 		}
 	}
 
@@ -427,4 +474,303 @@ function normalize_query_filter_url( string $url ) : string {
 		},
 		$url
 	);
+}
+
+/**
+ * Redirect taxonomy pagination requests to pretty permalinks.
+ *
+ * @return void
+ */
+function maybe_redirect_taxonomy_query_page() : void {
+	if ( is_admin() || wp_doing_ajax() ) {
+		return;
+	}
+
+	if ( ! ( is_category() || is_tag() || is_tax() ) ) {
+		return;
+	}
+
+	$page_param = null;
+
+	if ( isset( $_GET['query-page'] ) ) {
+		$page_param = 'query-page';
+	} else {
+		foreach ( array_keys( $_GET ) as $key ) {
+			if ( preg_match( '/^query-\d+-page$/', $key ) ) {
+				$page_param = $key;
+				break;
+			}
+		}
+	}
+
+	if ( is_null( $page_param ) ) {
+		return;
+	}
+
+	$page = max( 1, absint( wp_unslash( $_GET[ $page_param ] ) ) );
+
+	if ( $page <= 1 ) {
+		return;
+	}
+
+	$destination = get_pagenum_link( $page );
+
+	if ( empty( $destination ) ) {
+		return;
+	}
+
+	$params = [];
+
+	foreach ( $_GET as $key => $value ) {
+		if ( $key === $page_param || strpos( $key, 'query-' ) !== 0 ) {
+			continue;
+		}
+
+		$params[ $key ] = sanitize_text_field( wp_unslash( $value ) );
+	}
+
+	if ( ! empty( $params ) ) {
+		$destination = add_query_arg( $params, $destination );
+	}
+
+	wp_safe_redirect( $destination, 301 );
+	exit;
+}
+
+/**
+ * Build the rendered taxonomy text result for the block/format.
+ *
+ * @param array<string, mixed> $attributes Attributes.
+ * @param array<string, mixed> $context    Block context.
+ * @return array{ text: string, filter_type: string }|null
+ */
+function get_taxonomy_text_result( array $attributes, array $context = [] ) : ?array {
+	$allowed_filters = [ 'tag', 'category', 'sort' ];
+	$filter_type = $attributes['filterType'] ?? 'tag';
+
+	if ( ! in_array( $filter_type, $allowed_filters, true ) ) {
+		$filter_type = 'tag';
+	}
+
+	$prefix = (string) ( $attributes['prefix'] ?? '' );
+	$suffix = (string) ( $attributes['suffix'] ?? '' );
+	$query_context = $context['query'] ?? [];
+	$inherits_main = empty( $context ) || ! empty( $query_context['inherit'] );
+	$target_query_id = $inherits_main ? 'main' : (string) ( $context['queryId'] ?? 0 );
+
+	$requested_query_id = sanitize_text_field(
+		wp_unslash(
+			$_GET['query-post_id']
+				?? ( $_GET['query-id'] ?? '' )
+		)
+	);
+
+	$legacy_prefix = 'main' === $target_query_id ? 'query-' : "query-{$target_query_id}-";
+	$use_legacy_params = false;
+
+	if ( 'main' !== $target_query_id && empty( $requested_query_id ) ) {
+		foreach ( array_keys( $_GET ) as $key ) {
+			if ( strpos( $key, $legacy_prefix ) === 0 ) {
+				$use_legacy_params = true;
+				break;
+			}
+		}
+	}
+
+	if ( ! $use_legacy_params ) {
+		if ( 'main' !== $target_query_id && $requested_query_id !== $target_query_id ) {
+			return null;
+		}
+
+		if ( 'main' === $target_query_id && $requested_query_id && 'main' !== $requested_query_id ) {
+			return null;
+		}
+	}
+
+	$param_suffix_map = [
+		'tag' => 'post_tag',
+		'category' => 'category',
+		'sort' => 'post_orderby',
+	];
+
+	$param_candidates = array_unique( [
+		'query-' . $param_suffix_map[ $filter_type ],
+		$legacy_prefix . $param_suffix_map[ $filter_type ],
+	] );
+
+	$raw_value = '';
+
+	foreach ( $param_candidates as $param_name ) {
+		if ( isset( $_GET[ $param_name ] ) && '' !== $_GET[ $param_name ] ) {
+			$raw_value = sanitize_text_field( urldecode( wp_unslash( $_GET[ $param_name ] ) ) );
+			break;
+		}
+	}
+
+	if ( '' === $raw_value ) {
+		return null;
+	}
+
+	$display_value = '';
+
+	if ( 'sort' === $filter_type ) {
+		$sort_labels = [
+			'date:DESC' => __( 'Newest to Oldest', 'query-filter' ),
+			'date:ASC' => __( 'Oldest to Newest', 'query-filter' ),
+			'title:ASC' => __( 'A → Z', 'query-filter' ),
+			'title:DESC' => __( 'Z → A', 'query-filter' ),
+			'comment_count:DESC' => __( 'Most Commented', 'query-filter' ),
+			'menu_order:ASC' => __( 'Menu Order', 'query-filter' ),
+		];
+
+		$parts = explode( ':', $raw_value );
+		$orderby = sanitize_key( $parts[0] ?? '' );
+		$order = strtoupper( sanitize_text_field( $parts[1] ?? '' ) );
+		$normalized = $orderby . ':' . $order;
+
+		if ( isset( $sort_labels[ $normalized ] ) ) {
+			$display_value = $sort_labels[ $normalized ];
+		}
+	} else {
+		$taxonomy = 'tag' === $filter_type ? 'post_tag' : 'category';
+		$raw_slugs = array_filter(
+			array_map(
+				'trim',
+				explode( ',', $raw_value )
+			)
+		);
+		$slugs = array_values(
+			array_filter(
+				array_map(
+					static function ( $slug ) {
+						$sanitized = sanitize_title( $slug );
+
+						return '' === $sanitized ? null : $sanitized;
+					},
+					$raw_slugs
+				)
+			)
+		);
+
+		if ( empty( $slugs ) ) {
+			return null;
+		}
+
+		$terms = get_terms(
+			[
+				'taxonomy' => $taxonomy,
+				'slug' => $slugs,
+				'hide_empty' => false,
+			]
+		);
+
+		if ( is_wp_error( $terms ) || empty( $terms ) ) {
+			return null;
+		}
+
+		$term_lookup = [];
+
+		foreach ( $terms as $term ) {
+			$term_lookup[ $term->slug ] = $term->name;
+		}
+
+		$ordered_names = [];
+
+		foreach ( $slugs as $slug ) {
+			if ( isset( $term_lookup[ $slug ] ) ) {
+				$ordered_names[] = $term_lookup[ $slug ];
+			}
+		}
+
+		if ( empty( $ordered_names ) ) {
+			return null;
+		}
+
+		$display_value = implode( ', ', $ordered_names );
+	}
+
+	if ( '' === $display_value ) {
+		return null;
+	}
+
+	$text = $prefix . $display_value . $suffix;
+
+	if ( '' === trim( $text ) ) {
+		return null;
+	}
+
+	return [
+		'text' => $text,
+		'filter_type' => $filter_type,
+	];
+}
+
+/**
+ * Replace inline taxonomy spans in rendered content.
+ *
+ * @param string               $content Content string.
+ * @param array<string, mixed> $context Block context.
+ * @return string
+ */
+function replace_inline_taxonomy_text_spans( string $content, array $context = [] ) : string {
+	if ( false === strpos( $content, 'data-query-filter-text=' ) ) {
+		return $content;
+	}
+
+	$pattern = '/<span\b([^>]*)data-query-filter-text="([^"]+)"([^>]*)>(.*?)<\/span>/si';
+
+	return preg_replace_callback(
+		$pattern,
+		static function ( $matches ) use ( $context ) {
+			$decoded = html_entity_decode( $matches[2], ENT_QUOTES, 'UTF-8' );
+			$attributes = json_decode( $decoded, true );
+
+			if ( ! is_array( $attributes ) ) {
+				return $matches[0];
+			}
+
+			$result = get_taxonomy_text_result( $attributes, $context );
+
+			if ( is_null( $result ) ) {
+				return '';
+			}
+
+			$class = sprintf(
+				'taxonomy-text taxonomy-text--%s',
+				sanitize_html_class( $result['filter_type'] )
+			);
+
+			return sprintf(
+				'<span class="%s">%s</span>',
+				esc_attr( $class ),
+				esc_html( $result['text'] )
+			);
+		},
+		$content
+	);
+}
+
+/**
+ * Filter the rendered block content to inject inline taxonomy text.
+ *
+ * @param string $block_content Block HTML.
+ * @param array  $block         Parsed block data.
+ * @return string
+ */
+function filter_inline_taxonomy_text_in_block( string $block_content, array $block ) : string {
+	if ( false === strpos( $block_content, 'data-query-filter-text=' ) ) {
+		return $block_content;
+	}
+
+	return replace_inline_taxonomy_text_spans( $block_content, $block['context'] ?? [] );
+}
+
+/**
+ * Fallback for legacy content where render_block is not invoked.
+ *
+ * @param string $content Post content.
+ * @return string
+ */
+function filter_inline_taxonomy_text_in_content( string $content ) : string {
+	return replace_inline_taxonomy_text_spans( $content );
 }
