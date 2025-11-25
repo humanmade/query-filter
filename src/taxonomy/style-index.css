@@ -1,9 +1,0 @@
-@view-transition {
-	navigation: auto;
-}
-
-.wp-block-query-filter {
-	display: flex;
-	flex-direction: column;
-	justify-content: stretch;
-}

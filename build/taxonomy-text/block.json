@@ -50,6 +50,14 @@
       ],
       "default": "tag"
     },
+    "valueType": {
+      "type": "string",
+      "enum": [
+        "title",
+        "description"
+      ],
+      "default": "title"
+    },
     "prefix": {
       "type": "string",
       "default": ""

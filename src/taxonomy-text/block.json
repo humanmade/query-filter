@@ -1,0 +1,57 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "query-filter/taxonomy-text",
+	"version": "0.1.0",
+	"title": "Taxonomy Text",
+	"category": "theme",
+	"icon": "feedback",
+	"description": "Outputs the currently selected taxonomy term or sort option for the surrounding query loop.",
+	"keywords": [ "query", "filter", "taxonomy", "seo" ],
+	"ancestor": [ "core/query" ],
+	"usesContext": [ "queryId", "query" ],
+	"supports": {
+		"html": false,
+		"className": true,
+		"customClassName": true,
+		"color": {
+			"text": true,
+			"background": true
+		},
+		"typography": {
+			"fontSize": true,
+			"lineHeight": true,
+			"__experimentalFontWeight": true,
+			"__experimentalTextTransform": true,
+			"__experimentalLetterSpacing": true
+		},
+		"spacing": {
+			"margin": true,
+			"padding": true
+		}
+	},
+	"attributes": {
+		"filterType": {
+			"type": "string",
+			"enum": [ "tag", "category", "sort" ],
+			"default": "tag"
+		},
+		"valueType": {
+			"type": "string",
+			"enum": [ "title", "description" ],
+			"default": "title"
+		},
+		"prefix": {
+			"type": "string",
+			"default": ""
+		},
+		"suffix": {
+			"type": "string",
+			"default": ""
+		}
+	},
+	"textdomain": "query-filter",
+	"editorScript": "file:./index.js",
+	"render": "file:./render.php"
+}
+

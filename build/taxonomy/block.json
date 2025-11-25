@@ -49,10 +49,6 @@
     "taxonomy": {
       "type": "string"
     },
-    "limitToCurrentResults": {
-      "type": "boolean",
-      "default": false
-    },
     "emptyLabel": {
       "type": "string",
       "default": ""

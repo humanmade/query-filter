@@ -547,9 +547,14 @@ function maybe_redirect_taxonomy_query_page() : void {
 function get_taxonomy_text_result( array $attributes, array $context = [] ) : ?array {
 	$allowed_filters = [ 'tag', 'category', 'sort' ];
 	$filter_type = $attributes['filterType'] ?? 'tag';
+	$value_type = $attributes['valueType'] ?? 'title';
 
 	if ( ! in_array( $filter_type, $allowed_filters, true ) ) {
 		$filter_type = 'tag';
+	}
+
+	if ( ! in_array( $value_type, [ 'title', 'description' ], true ) ) {
+		$value_type = 'title';
 	}
 
 	$prefix = (string) ( $attributes['prefix'] ?? '' );
@@ -631,6 +636,7 @@ function get_taxonomy_text_result( array $attributes, array $context = [] ) : ?a
 		if ( isset( $sort_labels[ $normalized ] ) ) {
 			$display_value = $sort_labels[ $normalized ];
 		}
+		$value_type = 'title';
 	} else {
 		$taxonomy = 'tag' === $filter_type ? 'post_tag' : 'category';
 		$raw_slugs = array_filter(
@@ -671,22 +677,26 @@ function get_taxonomy_text_result( array $attributes, array $context = [] ) : ?a
 		$term_lookup = [];
 
 		foreach ( $terms as $term ) {
-			$term_lookup[ $term->slug ] = $term->name;
+			$term_lookup[ $term->slug ] = [
+				'title' => $term->name,
+				'description' => trim( wp_strip_all_tags( $term->description ?? '' ) ),
+			];
 		}
 
-		$ordered_names = [];
+		$ordered_values = [];
+		$value_key = 'description' === $value_type ? 'description' : 'title';
 
 		foreach ( $slugs as $slug ) {
-			if ( isset( $term_lookup[ $slug ] ) ) {
-				$ordered_names[] = $term_lookup[ $slug ];
+			if ( isset( $term_lookup[ $slug ][ $value_key ] ) && '' !== $term_lookup[ $slug ][ $value_key ] ) {
+				$ordered_values[] = $term_lookup[ $slug ][ $value_key ];
 			}
 		}
 
-		if ( empty( $ordered_names ) ) {
+		if ( empty( $ordered_values ) ) {
 			return null;
 		}
 
-		$display_value = implode( ', ', $ordered_names );
+		$display_value = implode( ', ', $ordered_values );
 	}
 
 	if ( '' === $display_value ) {
