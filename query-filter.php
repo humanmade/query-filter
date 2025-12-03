@@ -18,5 +18,6 @@ const PLUGIN_FILE = __FILE__;
 const ROOT_DIR = __DIR__;
 
 require_once __DIR__ . '/inc/namespace.php';
+require_once __DIR__ . '/inc/custom-fields-search.php';
 
 bootstrap();

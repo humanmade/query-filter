@@ -4,7 +4,11 @@
 
 This plugin allows you to easily add filters to any query loop block.
 
-Provides 2 new blocks that can be added within a query loop block to allow filtering by either post type or a taxonomy. Also supports using the core search block to allow you to search.
+Provides 2 new blocks that can be added within a query loop block to allow filtering by either post type or a taxonomy. 
+
+Additions to the search block:
+- It supports using the core search block to allow you to search.
+- It includes search in the custom fields of the post.
 
 Compatible with both the core query loop block and the [Advanced query loop plugin](https://wordpress.org/plugins/advanced-query-loop/) (In fact, in order to use post type filters, use of the Advanced Query Loop plugin is required). 
 
