@@ -217,6 +217,7 @@ function render_block_query( $block_content, $block ) {
 	$block_content->next_tag();
 
 	// Always allow region updates on interactivity, use standard core region naming.
+	$block_content->set_attribute( 'data-wp-interactive', 'query-filter' );
 	$block_content->set_attribute( 'data-wp-router-region', 'query-' . ( $block['attrs']['queryId'] ?? 0 ) );
 
 	return (string) $block_content;
