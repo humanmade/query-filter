@@ -1,40 +1,40 @@
 name: PR Playground Preview
 
 on:
-  pull_request:
-    types: [opened, synchronize, reopened, edited]
+    pull_request:
+        types: [opened, synchronize, reopened, edited]
 
 permissions:
-  contents: write
-  pull-requests: write
+    contents: write
+    pull-requests: write
 
 jobs:
-  preview:
-    runs-on: ubuntu-latest
+    preview:
+        runs-on: ubuntu-latest
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: 'npm'
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: 24
+                  cache: 'npm'
 
-      - name: Install dependencies
-        run: npm i
+            - name: Install dependencies
+              run: npm i
 
-      - name: Replace __VERSION__ in plugin file
-        run: |
-          sed -i "s/__VERSION__/PR-${{ github.event.pull_request.number }}: ${{ github.event.pull_request.title }}/" query-filter.php
+            - name: Replace __VERSION__ in plugin file
+              run: |
+                  sed -i "s/__VERSION__/PR-${{ github.event.pull_request.number }}: ${{ github.event.pull_request.title }}/" query-filter.php
 
-      - name: Build
-        run: npm run build
+            - name: Build
+              run: npm run build
 
-      - name: Generate preview
-        uses: WordPress/action-wp-playground-pr-preview@v2
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          plugin-path: .
-          blueprint: blueprint.json
+            - name: Generate preview
+              uses: WordPress/action-wp-playground-pr-preview@v2
+              with:
+                  github-token: ${{ secrets.GITHUB_TOKEN }}
+                  plugin-path: .
+                  blueprint: blueprint.json

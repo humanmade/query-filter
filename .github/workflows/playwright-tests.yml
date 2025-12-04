@@ -1,93 +1,93 @@
 name: Playwright Tests
 
 on:
-  push:
-    branches:
-      - main
-      - master
-      - develop
-  pull_request:
-    branches:
-      - main
-      - master
-      - develop
+    push:
+        branches:
+            - main
+            - master
+            - develop
+    pull_request:
+        branches:
+            - main
+            - master
+            - develop
 
 jobs:
-  test:
-    timeout-minutes: 60
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        php: ['8.3', '8.4']
-        wp: ['6.7', '6.8', 'latest']
+    test:
+        timeout-minutes: 60
+        runs-on: ubuntu-latest
+        strategy:
+            matrix:
+                php: ['8.3', '8.4']
+                wp: ['6.7', '6.8', 'latest']
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: 'npm'
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: 24
+                  cache: 'npm'
 
-      - name: Install dependencies
-        run: npm i
+            - name: Install dependencies
+              run: npm i
 
-      - name: Build
-        run: npm run build
+            - name: Build
+              run: npm run build
 
-      - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium
+            - name: Install Playwright browsers
+              run: npx playwright install --with-deps chromium
 
-      - name: Start WordPress Playground
-        run: |
-          npx @wp-now/wp-now start \
-            --blueprint=blueprint.json \
-            --php=${{ matrix.php }} \
-            --wp=${{ matrix.wp }} \
-            --port=9400 \
-            --auto-mount &
-          echo $! > .wp-now-pid
+            - name: Start WordPress Playground
+              run: |
+                  npx @wp-now/wp-now start \
+                    --blueprint=blueprint.json \
+                    --php=${{ matrix.php }} \
+                    --wp=${{ matrix.wp }} \
+                    --port=9400 \
+                    --auto-mount &
+                  echo $! > .wp-now-pid
 
-      - name: Wait for WordPress Playground to be ready
-        run: |
-          timeout 120 bash -c 'until curl -sf http://localhost:9400/wp-admin/ > /dev/null; do sleep 1; done' || exit 1
+            - name: Wait for WordPress Playground to be ready
+              run: |
+                  timeout 120 bash -c 'until curl -sf http://localhost:9400/wp-admin/ > /dev/null; do sleep 1; done' || exit 1
 
-      - name: Run Playwright tests
-        id: tests
-        continue-on-error: true
-        run: npm run test:e2e
+            - name: Run Playwright tests
+              id: tests
+              continue-on-error: true
+              run: npm run test:e2e
 
-      - name: Upload test results
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: playwright-results-php-${{ matrix.php }}-wp-${{ matrix.wp }}
-          path: test-results/
-          retention-days: 7
+            - name: Upload test results
+              uses: actions/upload-artifact@v4
+              if: always()
+              with:
+                  name: playwright-results-php-${{ matrix.php }}-wp-${{ matrix.wp }}
+                  path: test-results/
+                  retention-days: 7
 
-      - name: Upload Playwright report
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: playwright-report-php-${{ matrix.php }}-wp-${{ matrix.wp }}
-          path: playwright-report/
-          retention-days: 30
+            - name: Upload Playwright report
+              uses: actions/upload-artifact@v4
+              if: always()
+              with:
+                  name: playwright-report-php-${{ matrix.php }}-wp-${{ matrix.wp }}
+                  path: playwright-report/
+                  retention-days: 30
 
-      - name: Comment test results on PR
-        if: github.event_name == 'pull_request' && always()
-        uses: daun/playwright-report-comment@v3
-        with:
-          report-path: test-results/results.json
+            - name: Comment test results on PR
+              if: github.event_name == 'pull_request' && always()
+              uses: daun/playwright-report-comment@v3
+              with:
+                  report-path: test-results/results.json
 
-      - name: Stop WordPress Playground
-        if: always()
-        run: |
-          if [ -f .wp-now-pid ]; then
-            kill $(cat .wp-now-pid) || true
-          fi
+            - name: Stop WordPress Playground
+              if: always()
+              run: |
+                  if [ -f .wp-now-pid ]; then
+                    kill $(cat .wp-now-pid) || true
+                  fi
 
-      - name: Fail if tests failed
-        if: steps.tests.outcome == 'failure'
-        run: exit 1
+            - name: Fail if tests failed
+              if: steps.tests.outcome == 'failure'
+              run: exit 1
