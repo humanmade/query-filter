@@ -36,7 +36,9 @@ const { state } = store( 'query-filter', {
 			}
 
 			// Don't navigate if the search didn't really change.
-			if ( value === state.searchValue ) return;
+			if ( value === state.searchValue ) {
+				return;
+			}
 
 			state.searchValue = value;
 

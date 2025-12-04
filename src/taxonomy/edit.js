@@ -7,18 +7,21 @@ import {
 	ToggleControl,
 } from '@wordpress/components';
 import { useSelect } from '@wordpress/data';
+import { useCallback } from '@wordpress/element';
 
 export default function Edit( { attributes, setAttributes } ) {
 	const { taxonomy, emptyLabel, label, showLabel } = attributes;
+
+	const updateAttributes = useCallback( setAttributes, [ setAttributes ] );
 
 	const taxonomies = useSelect(
 		( select ) => {
 			const results = (
 				select( 'core' ).getTaxonomies( { per_page: 100 } ) || []
-			).filter( ( taxonomy ) => taxonomy.visibility.publicly_queryable );
+			).filter( ( tax ) => tax.visibility.publicly_queryable );
 
 			if ( results && results.length > 0 && ! taxonomy ) {
-				setAttributes( {
+				updateAttributes( {
 					taxonomy: results[ 0 ].slug,
 					label: results[ 0 ].name,
 				} );
@@ -26,7 +29,7 @@ export default function Edit( { attributes, setAttributes } ) {
 
 			return results;
 		},
-		[ taxonomy ]
+		[ taxonomy, updateAttributes ]
 	);
 
 	const terms = useSelect(
@@ -47,15 +50,15 @@ export default function Edit( { attributes, setAttributes } ) {
 					<SelectControl
 						label={ __( 'Select Taxonomy', 'query-filter' ) }
 						value={ taxonomy }
-						options={ ( taxonomies || [] ).map( ( taxonomy ) => ( {
-							label: taxonomy.name,
-							value: taxonomy.slug,
+						options={ ( taxonomies || [] ).map( ( tax ) => ( {
+							label: tax.name,
+							value: tax.slug,
 						} ) ) }
-						onChange={ ( taxonomy ) =>
+						onChange={ ( newTaxonomy ) =>
 							setAttributes( {
-								taxonomy,
+								taxonomy: newTaxonomy,
 								label: taxonomies.find(
-									( tax ) => tax.slug === taxonomy
+									( tax ) => tax.slug === newTaxonomy
 								).name,
 							} )
 						}
@@ -67,32 +70,36 @@ export default function Edit( { attributes, setAttributes } ) {
 							'If empty then no label will be shown',
 							'query-filter'
 						) }
-						onChange={ ( label ) => setAttributes( { label } ) }
+						onChange={ ( newLabel ) => setAttributes( { label: newLabel } ) }
 					/>
 					<ToggleControl
 						label={ __( 'Show Label', 'query-filter' ) }
 						checked={ showLabel }
-						onChange={ ( showLabel ) =>
-							setAttributes( { showLabel } )
+						onChange={ ( newShowLabel ) =>
+							setAttributes( { showLabel: newShowLabel } )
 						}
 					/>
 					<TextControl
 						label={ __( 'Empty Choice Label', 'query-filter' ) }
 						value={ emptyLabel }
 						placeholder={ __( 'All', 'query-filter' ) }
-						onChange={ ( emptyLabel ) =>
-							setAttributes( { emptyLabel } )
+						onChange={ ( newEmptyLabel ) =>
+							setAttributes( { emptyLabel: newEmptyLabel } )
 						}
 					/>
 				</PanelBody>
 			</InspectorControls>
 			<div { ...useBlockProps( { className: 'wp-block-query-filter' } ) }>
 				{ showLabel && (
-					<label className="wp-block-query-filter-taxonomy__label wp-block-query-filter__label">
+					<label
+						className="wp-block-query-filter-taxonomy__label wp-block-query-filter__label"
+						htmlFor="wp-block-query-filter-taxonomy__select"
+					>
 						{ label }
 					</label>
 				) }
 				<select
+					id="wp-block-query-filter-taxonomy__select"
 					className="wp-block-query-filter-taxonomy__select wp-block-query-filter__select"
 					inert
 				>
