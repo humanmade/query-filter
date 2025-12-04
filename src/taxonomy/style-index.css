@@ -1,6 +1,8 @@
+/* stylelint-disable scss/at-rule-no-unknown, property-no-unknown */
 @view-transition {
 	navigation: auto;
 }
+/* stylelint-enable scss/at-rule-no-unknown, property-no-unknown */
 
 .wp-block-query-filter {
 	display: flex;
