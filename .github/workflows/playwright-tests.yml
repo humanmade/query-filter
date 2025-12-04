@@ -46,7 +46,8 @@ jobs:
             --blueprint=blueprint.json \
             --php=${{ matrix.php }} \
             --wp=${{ matrix.wp }} \
-            --port=9400 &
+            --port=9400 \
+            --auto-mount &
           echo $! > .wp-now-pid
 
       - name: Wait for WordPress Playground to be ready
