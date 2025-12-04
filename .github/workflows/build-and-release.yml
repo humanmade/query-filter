@@ -1,0 +1,34 @@
+name: Build and release
+
+on:
+    push:
+        branches:
+            - main
+
+concurrency:
+    group: build-and-release
+    cancel-in-progress: true
+
+jobs:
+    build:
+        name: Update release branch
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: 24
+                  cache: 'npm'
+
+            - name: Build
+              uses: humanmade/action-build-plugin@04c32a93e52ae987095f144105745a501d6207c8
+              with:
+                  version-slug: 'release'
+                  build-dir: 'build'
+                  build-script: |
+                      npm i
+                      npm run build

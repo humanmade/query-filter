@@ -46,32 +46,38 @@ export default function Edit( { attributes, setAttributes, context } ) {
 							'If empty then no label will be shown',
 							'query-filter'
 						) }
-						onChange={ ( label ) => setAttributes( { label } ) }
+						onChange={ ( newLabel ) =>
+							setAttributes( { label: newLabel } )
+						}
 					/>
 					<ToggleControl
 						label={ __( 'Show Label', 'query-filter' ) }
 						checked={ showLabel }
-						onChange={ ( showLabel ) =>
-							setAttributes( { showLabel } )
+						onChange={ ( newShowLabel ) =>
+							setAttributes( { showLabel: newShowLabel } )
 						}
 					/>
 					<TextControl
 						label={ __( 'Empty Choice Label', 'query-filter' ) }
 						value={ emptyLabel }
 						placeholder={ __( 'All', 'query-filter' ) }
-						onChange={ ( emptyLabel ) =>
-							setAttributes( { emptyLabel } )
+						onChange={ ( newEmptyLabel ) =>
+							setAttributes( { emptyLabel: newEmptyLabel } )
 						}
 					/>
 				</PanelBody>
 			</InspectorControls>
 			<div { ...useBlockProps( { className: 'wp-block-query-filter' } ) }>
 				{ showLabel && (
-					<label className="wp-block-query-filter-post-type__label wp-block-query-filter__label">
+					<label
+						className="wp-block-query-filter-post-type__label wp-block-query-filter__label"
+						htmlFor="wp-block-query-filter-post-type__select"
+					>
 						{ label || __( 'Content Type', 'query-filter' ) }
 					</label>
 				) }
 				<select
+					id="wp-block-query-filter-post-type__select"
 					className="wp-block-query-filter-post-type__select wp-block-query-filter__select"
 					inert
 				>

@@ -8,11 +8,16 @@
 		"format": "wp-scripts format",
 		"lint:css": "wp-scripts lint-style --fix",
 		"lint:js": "wp-scripts lint-js",
-		"test": "echo \"Error: no test specified\" && exit 1"
+		"test:e2e": "playwright test",
+		"playground:start": "wp-now start --blueprint=blueprint.json --port=9400 --auto-mount"
 	},
 	"author": "Human Made Limited",
 	"license": "GPL-2.0-or-later",
 	"dependencies": {
 		"@wordpress/scripts": "^28.6.0"
+	},
+	"devDependencies": {
+		"@playwright/test": "^1.49.0",
+		"@wordpress/e2e-test-utils-playwright": "^1.10.0"
 	}
 }
