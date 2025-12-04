@@ -21,6 +21,16 @@
 			}
 		},
 		{
+			"step": "installPlugin",
+			"pluginZipFile": {
+				"resource": "wordpress.org/plugins",
+				"slug": "advanced-query-loop"
+			},
+			"options": {
+				"activate": true
+			}
+		},
+		{
 			"step": "defineWpConfigConsts",
 			"consts": {
 				"WP_DEBUG": true,
