@@ -37,4 +37,46 @@ jobs:
               with:
                   github-token: ${{ secrets.GITHUB_TOKEN }}
                   plugin-path: .
-                  blueprint: blueprint.json
+                  blueprint: |
+                      {
+                        "$schema": "https://playground.wordpress.net/blueprint-schema.json",
+                        "landingPage": "/wp-admin/",
+                        "login": true,
+                        "preferredVersions": {
+                          "php": "8.3",
+                          "wp": "6.8"
+                        },
+                        "features": {
+                          "networking": true
+                        },
+                        "steps": [
+                          {
+                            "step": "installTheme",
+                            "themeZipFile": {
+                              "resource": "wordpress.org/themes",
+                              "slug": "twentytwentyfive"
+                            },
+                            "options": {
+                              "activate": true
+                            }
+                          },
+                          {
+                            "step": "installPlugin",
+                            "pluginZipFile": {
+                              "resource": "wordpress.org/plugins",
+                              "slug": "advanced-query-loop"
+                            },
+                            "options": {
+                              "activate": true
+                            }
+                          },
+                          {
+                            "step": "defineWpConfigConsts",
+                            "consts": {
+                              "WP_DEBUG": true,
+                              "WP_DEBUG_LOG": true,
+                              "SCRIPT_DEBUG": true
+                            }
+                          }
+                        ]
+                      }
