@@ -46,7 +46,9 @@ export default function Edit( { attributes, setAttributes, context } ) {
 							'If empty then no label will be shown',
 							'query-filter'
 						) }
-						onChange={ ( newLabel ) => setAttributes( { label: newLabel } ) }
+						onChange={ ( newLabel ) =>
+							setAttributes( { label: newLabel } )
+						}
 					/>
 					<ToggleControl
 						label={ __( 'Show Label', 'query-filter' ) }
