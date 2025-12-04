@@ -1,0 +1,26 @@
+name: PR Cleanup
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Delete built branch
+        run: |
+          BRANCH_NAME="pr-${{ github.event.pull_request.number }}-built"
+          if git ls-remote --exit-code --heads origin "$BRANCH_NAME"; then
+            git push origin --delete "$BRANCH_NAME"
+            echo "Deleted branch $BRANCH_NAME"
+          else
+            echo "Branch $BRANCH_NAME does not exist, no cleanup needed"
+          fi
