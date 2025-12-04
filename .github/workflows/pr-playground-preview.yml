@@ -32,46 +32,9 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Push to built branch
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git checkout -B pr-${{ github.event.pull_request.number }}-built
-          git add -f build/
-          git commit -m "Build for PR #${{ github.event.pull_request.number }}"
-          git push -f origin pr-${{ github.event.pull_request.number }}-built
-
       - name: Generate preview
         uses: WordPress/action-wp-playground-pr-preview@v2
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          playground-url-path-params: '{"ghfrom":"pr-${{ github.event.pull_request.number }}-built"}'
-          playground-props: |
-            {
-              "preferredVersions": {
-                "php": "8.3",
-                "wp": "6.8"
-              },
-              "login": true,
-              "username": "admin",
-              "password": "password",
-              "steps": [
-                {
-                  "step": "installTheme",
-                  "themeZipFile": {
-                    "resource": "wordpress.org/themes",
-                    "slug": "twentytwentyfour"
-                  },
-                  "options": {
-                    "activate": true
-                  }
-                },
-                {
-                  "step": "installPlugin",
-                  "pluginZipFile": {
-                    "resource": "url",
-                    "url": "https://github-proxy.com/proxy/?repo=${{ github.repository }}&branch=pr-${{ github.event.pull_request.number }}-built"
-                  }
-                }
-              ]
-            }
+          plugin-path: .
+          blueprint: blueprint.json
