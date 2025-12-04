@@ -9,7 +9,7 @@
 		"lint:css": "wp-scripts lint-style --fix",
 		"lint:js": "wp-scripts lint-js",
 		"test:e2e": "playwright test",
-		"playground:start": "wp-now start --blueprint=blueprint.json --port=9400"
+		"playground:start": "wp-now start --blueprint=blueprint.json --port=9400 --auto-mount"
 	},
 	"author": "Human Made Limited",
 	"license": "GPL-2.0-or-later",
