@@ -30,13 +30,36 @@ if ( is_wp_error( $terms ) || empty( $terms ) ) {
 ?>
 
 <div <?php echo get_block_wrapper_attributes( [ 'class' => 'wp-block-query-filter' ] ); ?> data-wp-interactive="query-filter" data-wp-context="{}">
-	<label class="wp-block-query-filter-post-type__label wp-block-query-filter__label<?php echo $attributes['showLabel'] ? '' : ' screen-reader-text' ?>" for="<?php echo esc_attr( $id ); ?>">
-		<?php echo esc_html( $attributes['label'] ?? $taxonomy->label ); ?>
-	</label>
-	<select class="wp-block-query-filter-post-type__select wp-block-query-filter__select" id="<?php echo esc_attr( $id ); ?>" data-wp-on--change="actions.navigate">
-		<option value="<?php echo esc_attr( $base_url ) ?>"><?php echo esc_html( $attributes['emptyLabel'] ?: __( 'All', 'query-filter' ) ); ?></option>
-		<?php foreach ( $terms as $term ) : ?>
-			<option value="<?php echo esc_attr( add_query_arg( [ $query_var => $term->slug, $page_var => false ], $base_url ) ) ?>" <?php selected( $term->slug, wp_unslash( $_GET[ $query_var ] ?? '' ) ); ?>><?php echo esc_html( $term->name ); ?></option>
-		<?php endforeach; ?>
-	</select>
+	<?php if ( $attributes['useCheckboxes'] ) : ?>
+		<fieldset class="wp-block-query-filter__checkboxes">
+			<legend class="wp-block-query-filter__legend<?php echo $attributes['showLabel'] ? '' : ' screen-reader-text' ?>">
+				<?php echo esc_html( $attributes['label'] ?? $taxonomy->label ); ?>
+			</legend>
+			<?php foreach ( $terms as $term ) :
+				$checked = in_array( $term->slug, explode( ',', wp_unslash( $_GET[ $query_var ] ?? '' ) ), true );
+				?>
+				<span class="wp-block-query-filter__checkboxes-wrapper">
+					<input
+						type="checkbox"
+						name="<?php echo esc_attr( $query_var ); ?>"
+						value="<?php echo esc_attr( $term->slug ); ?>"
+						id="query-filter-<?php echo esc_attr( $term->slug ); ?>"
+						<?php checked( $checked ); ?>
+						data-wp-on--change="actions.navigate"
+					/>
+					<label for="query-filter-<?php echo esc_attr( $term->slug ); ?>"><?php echo esc_html( $term->name ); ?></label>
+				</span>
+			<?php endforeach; ?>
+		</fieldset>
+	<?php else : ?>
+		<label class="wp-block-query-filter-post-type__label wp-block-query-filter__label<?php echo $attributes['showLabel'] ? '' : ' screen-reader-text' ?>" for="<?php echo esc_attr( $id ); ?>">
+			<?php echo esc_html( $attributes['label'] ?? $taxonomy->label ); ?>
+		</label>
+		<select class="wp-block-query-filter-post-type__select wp-block-query-filter__select" id="<?php echo esc_attr( $id ); ?>" name="<?php echo esc_attr( $query_var ); ?>" data-wp-on--change="actions.navigate">
+			<option value=""><?php echo esc_html( $attributes['emptyLabel'] ?: __( 'All', 'query-filter' ) ); ?></option>
+			<?php foreach ( $terms as $term ) : ?>
+				<option value="<?php echo esc_attr( $term->slug ); ?>" <?php selected( $term->slug, wp_unslash( $_GET[ $query_var ] ?? '' ) ); ?>><?php echo esc_html( $term->name ); ?></option>
+			<?php endforeach; ?>
+		</select>
+	<?php endif; ?>
 </div>
