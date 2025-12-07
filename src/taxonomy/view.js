@@ -7,6 +7,16 @@ const updateURL = async ( action, value, name ) => {
 	} else {
 		url.searchParams.delete( name );
 	}
+
+	// Remove pagination when performing a search
+	// for your specific pagination format: query-{id}-page
+	const searchParams = url.searchParams;
+	[...searchParams.keys()].forEach(param => {
+		if (param.match(/query-\d+-page/) || param === 'paged') {
+			searchParams.delete(param);
+		}
+	});
+
 	const { actions } = await import( '@wordpress/interactivity-router' );
 	await actions.navigate( url.toString() );
 };
