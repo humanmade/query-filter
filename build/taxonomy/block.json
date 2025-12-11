@@ -6,7 +6,7 @@
   "title": "Taxonomy Filter",
   "category": "theme",
   "icon": "filter",
-  "description": "Allows users to filter by taxonomy terms when placed wihin a query loop block",
+  "description": "Allows users to filter by taxonomy terms when placed within a query loop block",
   "ancestor": [
     "core/query"
   ],
@@ -59,6 +59,10 @@
     "showLabel": {
       "type": "boolean",
       "default": true
+    },
+    "limitToCurrentResults": {
+      "type": "boolean",
+      "default": false
     }
   },
   "textdomain": "query-filter",
