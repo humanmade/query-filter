@@ -33,13 +33,17 @@
 	"attributes": {
 		"filterType": {
 			"type": "string",
-			"enum": [ "tag", "category", "sort" ],
+			"enum": [ "tag", "category", "sort", "page" ],
 			"default": "tag"
 		},
 		"valueType": {
 			"type": "string",
-			"enum": [ "title", "description" ],
+			"enum": [ "title", "description", "page" ],
 			"default": "title"
+		},
+		"showAfterFirstPage": {
+			"type": "boolean",
+			"default": true
 		},
 		"prefix": {
 			"type": "string",

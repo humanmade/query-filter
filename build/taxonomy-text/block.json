@@ -46,7 +46,8 @@
       "enum": [
         "tag",
         "category",
-        "sort"
+        "sort",
+        "page"
       ],
       "default": "tag"
     },
@@ -54,9 +55,14 @@
       "type": "string",
       "enum": [
         "title",
-        "description"
+        "description",
+        "page"
       ],
       "default": "title"
+    },
+    "showAfterFirstPage": {
+      "type": "boolean",
+      "default": true
     },
     "prefix": {
       "type": "string",

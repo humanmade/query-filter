@@ -553,7 +553,7 @@ function get_taxonomy_text_result( array $attributes, array $context = [] ) : ?a
 		$filter_type = 'tag';
 	}
 
-	if ( ! in_array( $value_type, [ 'title', 'description' ], true ) ) {
+	if ( ! in_array( $value_type, [ 'title', 'description', 'page' ], true ) ) {
 		$value_type = 'title';
 	}
 
@@ -598,27 +598,40 @@ function get_taxonomy_text_result( array $attributes, array $context = [] ) : ?a
 		'sort' => 'post_orderby',
 	];
 
-	$param_candidates = array_unique( [
-		'query-' . $param_suffix_map[ $filter_type ],
-		$legacy_prefix . $param_suffix_map[ $filter_type ],
-	] );
+	$show_after_first_page = isset( $attributes['showAfterFirstPage'] )
+		? (bool) $attributes['showAfterFirstPage']
+		: true;
 
-	$raw_value = '';
+	if ( 'page' === $value_type ) {
+		$paged = 1;
 
-	foreach ( $param_candidates as $param_name ) {
-		if ( isset( $_GET[ $param_name ] ) && '' !== $_GET[ $param_name ] ) {
-			$raw_value = sanitize_text_field( urldecode( wp_unslash( $_GET[ $param_name ] ) ) );
-			break;
+		// Prefer explicit query-* page params for the targeted query.
+		foreach ( array_keys( $_GET ) as $key ) {
+			if ( 'main' === $target_query_id && 'query-page' === $key ) {
+				$paged = max( 1, absint( wp_unslash( $_GET[ $key ] ) ) );
+				break;
+			}
+
+			if (
+				'main' !== $target_query_id
+				&& preg_match( '/^query-(\d+)-page$/', $key, $matches )
+				&& (string) $matches[1] === (string) $target_query_id
+			) {
+				$paged = max( 1, absint( wp_unslash( $_GET[ $key ] ) ) );
+				break;
+			}
 		}
-	}
 
-	if ( '' === $raw_value ) {
-		return null;
-	}
+		if ( $paged <= 1 ) {
+			$paged = (int) get_query_var( 'paged', 1 );
+		}
 
-	$display_value = '';
+		if ( $paged <= 1 && $show_after_first_page ) {
+			return null;
+		}
 
-	if ( 'sort' === $filter_type ) {
+		$display_value = (string) max( 1, $paged );
+	} elseif ( 'sort' === $filter_type ) {
 		$sort_labels = [
 			'date:DESC' => __( 'Newest to Oldest', 'query-filter' ),
 			'date:ASC' => __( 'Oldest to Newest', 'query-filter' ),
@@ -636,8 +649,28 @@ function get_taxonomy_text_result( array $attributes, array $context = [] ) : ?a
 		if ( isset( $sort_labels[ $normalized ] ) ) {
 			$display_value = $sort_labels[ $normalized ];
 		}
-		$value_type = 'title';
+		if ( 'description' === $value_type ) {
+			$value_type = 'title';
+		}
 	} else {
+		$param_candidates = array_unique( [
+			'query-' . $param_suffix_map[ $filter_type ],
+			$legacy_prefix . $param_suffix_map[ $filter_type ],
+		] );
+
+		$raw_value = '';
+
+		foreach ( $param_candidates as $param_name ) {
+			if ( isset( $_GET[ $param_name ] ) && '' !== $_GET[ $param_name ] ) {
+				$raw_value = sanitize_text_field( urldecode( wp_unslash( $_GET[ $param_name ] ) ) );
+				break;
+			}
+		}
+
+		if ( '' === $raw_value ) {
+			return null;
+		}
+
 		$taxonomy = 'tag' === $filter_type ? 'post_tag' : 'category';
 		$raw_slugs = array_filter(
 			array_map(

@@ -12,6 +12,7 @@ import {
 	Modal,
 	SelectControl,
 	TextControl,
+	ToggleControl,
 } from '@wordpress/components';
 import { stack } from '@wordpress/icons';
 import { useEffect, useMemo, useState } from '@wordpress/element';
@@ -24,17 +25,20 @@ const DEFAULT_SETTINGS = {
 	valueType: 'title',
 	prefix: '',
 	suffix: '',
+	showAfterFirstPage: true,
 };
 
 const FILTER_OPTIONS = [
 	{ label: __( 'Tag', 'query-filter' ), value: 'tag' },
 	{ label: __( 'Category', 'query-filter' ), value: 'category' },
 	{ label: __( 'Sort', 'query-filter' ), value: 'sort' },
+	{ label: __( 'Page Number', 'query-filter' ), value: 'page' },
 ];
 
 const VALUE_TYPE_OPTIONS = [
 	{ label: __( 'Title', 'query-filter' ), value: 'title' },
 	{ label: __( 'Description', 'query-filter' ), value: 'description' },
+	{ label: __( 'Page Number', 'query-filter' ), value: 'page' },
 ];
 
 const getOptionLabel = ( options, value ) =>
@@ -47,7 +51,7 @@ const getPlaceholderText = ( settings ) => {
 	];
 
 	const valueLabel =
-		settings.filterType === 'sort'
+		settings.filterType === 'sort' && settings.valueType !== 'page'
 			? __( 'title', 'query-filter' )
 			: getOptionLabel( VALUE_TYPE_OPTIONS, settings.valueType );
 
@@ -69,6 +73,8 @@ const parseSettings = ( attributeValue ) => {
 			valueType: parsed.valueType || DEFAULT_SETTINGS.valueType,
 			prefix: parsed.prefix || '',
 			suffix: parsed.suffix || '',
+			showAfterFirstPage:
+				parsed.showAfterFirstPage ?? DEFAULT_SETTINGS.showAfterFirstPage,
 		};
 	} catch ( error ) {
 		return DEFAULT_SETTINGS;
@@ -93,7 +99,10 @@ const FormatEdit = ( {
 	}, [ currentSettings ] );
 
 	useEffect( () => {
-		if ( settings.filterType === 'sort' && settings.valueType !== 'title' ) {
+		if (
+			[ 'sort', 'page' ].includes( settings.filterType ) &&
+			settings.valueType === 'description'
+		) {
 			setSettings( ( prev ) => ( { ...prev, valueType: 'title' } ) );
 		}
 	}, [ settings.filterType, settings.valueType ] );
@@ -126,7 +135,13 @@ const FormatEdit = ( {
 		setSettings( ( prev ) => ( {
 			...prev,
 			filterType,
-			valueType: filterType === 'sort' ? 'title' : prev.valueType,
+			valueType:
+				filterType === 'page'
+					? 'page'
+					: [ 'sort', 'page' ].includes( filterType ) &&
+					  prev.valueType === 'description'
+					? 'title'
+					: prev.valueType,
 		} ) );
 	};
 
@@ -153,7 +168,11 @@ const FormatEdit = ( {
 						label={ __( 'Value Type', 'query-filter' ) }
 						value={ settings.valueType }
 						options={ VALUE_TYPE_OPTIONS }
-						disabled={ settings.filterType === 'sort' }
+						disabled={
+							( settings.filterType === 'sort' ||
+								settings.filterType === 'page' ) &&
+							settings.valueType === 'description'
+						}
 						onChange={ ( valueType ) =>
 							setSettings( ( prev ) => ( {
 								...prev,
@@ -175,6 +194,18 @@ const FormatEdit = ( {
 							setSettings( ( prev ) => ( { ...prev, suffix } ) )
 						}
 					/>
+					{ settings.filterType === 'page' && (
+						<ToggleControl
+							label={ __( 'Only show after page 1', 'query-filter' ) }
+							checked={ !! settings.showAfterFirstPage }
+							onChange={ ( next ) =>
+								setSettings( ( prev ) => ( {
+									...prev,
+									showAfterFirstPage: next,
+								} ) )
+							}
+						/>
+					) }
 					<Flex justify="flex-start">
 						<FlexItem>
 							<Button variant="primary" onClick={ applyFormatToSelection }>

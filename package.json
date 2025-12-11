@@ -13,6 +13,7 @@
 	"author": "Human Made Limited",
 	"license": "GPL-2.0-or-later",
 	"dependencies": {
+		"@wordpress/icons": "^11.3.0",
 		"@wordpress/scripts": "^28.6.0"
 	}
 }

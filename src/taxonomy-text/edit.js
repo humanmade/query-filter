@@ -9,11 +9,13 @@ const FILTER_OPTIONS = [
 	{ label: __( 'Tag', 'query-filter' ), value: 'tag' },
 	{ label: __( 'Category', 'query-filter' ), value: 'category' },
 	{ label: __( 'Sort', 'query-filter' ), value: 'sort' },
+	{ label: __( 'Page Number', 'query-filter' ), value: 'page' },
 ];
 
 const VALUE_TYPE_OPTIONS = [
 	{ label: __( 'Title', 'query-filter' ), value: 'title' },
 	{ label: __( 'Description', 'query-filter' ), value: 'description' },
+	{ label: __( 'Page Number', 'query-filter' ), value: 'page' },
 ];
 
 export default function Edit( { attributes, setAttributes } ) {
@@ -22,6 +24,7 @@ export default function Edit( { attributes, setAttributes } ) {
 		valueType = 'title',
 		prefix = '',
 		suffix = '',
+		showAfterFirstPage = true,
 	} = attributes;
 
 	const blockProps = useBlockProps( {
@@ -38,7 +41,11 @@ export default function Edit( { attributes, setAttributes } ) {
 	const handleFilterChange = ( nextFilter ) => {
 		setAttributes( {
 			filterType: nextFilter,
-			valueType: nextFilter === 'sort' ? 'title' : valueType,
+			valueType:
+				[ 'sort', 'page' ].includes( nextFilter ) &&
+				valueType === 'description'
+					? 'title'
+					: valueType,
 		} );
 	};
 
@@ -56,11 +63,26 @@ export default function Edit( { attributes, setAttributes } ) {
 						label={ __( 'Value Type', 'query-filter' ) }
 						value={ valueType }
 						options={ VALUE_TYPE_OPTIONS }
-						disabled={ filterType === 'sort' }
+						disabled={
+							( filterType === 'sort' || filterType === 'page' ) &&
+							valueType === 'description'
+						}
 						onChange={ ( nextValue ) =>
 							setAttributes( { valueType: nextValue } )
 						}
 					/>
+					{ filterType === 'page' && (
+						<ToggleControl
+							label={ __(
+								'Only show after page 1',
+								'query-filter'
+							) }
+							checked={ !! showAfterFirstPage }
+							onChange={ ( value ) =>
+								setAttributes( { showAfterFirstPage: value } )
+							}
+						/>
+					) }
 					<TextControl
 						label={ __( 'Prefix Text', 'query-filter' ) }
 						value={ prefix }
