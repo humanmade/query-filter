@@ -1,12 +1,12 @@
 {
   "$schema": "https://schemas.wp.org/trunk/block.json",
   "apiVersion": 3,
-  "name": "query-filter/taxonomy",
+  "name": "query-filter/sort",
   "version": "0.1.0",
-  "title": "Taxonomy Filter",
+  "title": "Sort Filter",
   "category": "theme",
-  "icon": "filter",
-  "description": "Allows users to filter by taxonomy terms when placed within a query loop block",
+  "icon": "sort",
+  "description": "Allows visitors to change the order of results within a query loop block.",
   "ancestor": [
     "core/query"
   ],
@@ -46,13 +46,6 @@
     }
   },
   "attributes": {
-    "taxonomy": {
-      "type": "string"
-    },
-    "emptyLabel": {
-      "type": "string",
-      "default": ""
-    },
     "label": {
       "type": "string"
     },
@@ -60,14 +53,21 @@
       "type": "boolean",
       "default": true
     },
-    "limitToCurrentResults": {
-      "type": "boolean",
-      "default": false
+    "options": {
+      "type": "object",
+      "default": {
+        "date_desc": true,
+        "date_asc": true,
+        "title_asc": true,
+        "title_desc": true,
+        "comment_desc": true,
+        "menu_order": true
+      }
     }
   },
   "textdomain": "query-filter",
   "editorScript": "file:./index.js",
   "style": "query-filter-view",
-  "viewScriptModule": "file:./view.js",
   "render": "file:./render.php"
 }
+

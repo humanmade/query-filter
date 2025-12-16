@@ -1,0 +1,32 @@
+## Added "Searched Term" Filter Option
+
+This update adds support for displaying the current search term from WordPress search queries in the taxonomy-text block and RichText inline format.
+
+### Features
+
+- **New Filter Source**: "Searched Term" option added to the Filter Source dropdown
+- **URL Parameter Support**: Extracts search term from `?s=` URL parameter (WordPress native search)
+- **URL Decoding**: Automatically decodes URL-encoded search terms (e.g., `garden+tools` → `garden tools`)
+- **Prefix/Suffix Support**: Search terms support prefix and suffix text like other filter types
+- **Simplified Options**: Search filter hides Value Type and Link controls since search terms don't have descriptions or archive links
+
+### Technical Details
+
+- Added `"search"` to `filterType` enum in `block.json`
+- Updated editor components (`edit.js` and `format.js`) to handle search filter type
+- Added search term extraction logic in `get_taxonomy_text_result()` function
+- Search term is extracted from `$_GET['s']` or `get_query_var('s')` and URL-decoded
+- Returns `null` if no search term is present (block won't render)
+
+### Usage
+
+When a user searches on a WordPress site (e.g., `?s=garden+tools`), the taxonomy-text block can now display the searched term dynamically. This is useful for displaying search results context like "Showing results for: garden tools" or similar messaging.
+
+### Files Changed
+
+- `src/taxonomy-text/block.json` - Added "search" to filterType enum
+- `src/taxonomy-text/edit.js` - Added search option and UI controls
+- `src/taxonomy-text/format.js` - Added search option for RichText format
+- `inc/namespace.php` - Added search term extraction logic
+- Built assets updated
+

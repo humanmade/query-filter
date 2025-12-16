@@ -35,7 +35,6 @@ const { state } = store( 'query-filter', {
 				value = ref.value;
 			}
 
-			// Don't navigate if the search didn't really change.
 			if ( value === state.searchValue ) return;
 
 			state.searchValue = value;
@@ -44,3 +43,4 @@ const { state } = store( 'query-filter', {
 		},
 	},
 } );
+

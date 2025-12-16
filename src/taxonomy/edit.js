@@ -1,5 +1,5 @@
 import { __ } from '@wordpress/i18n';
-import { useBlockProps, InspectorControls } from '@wordpress/block-editor';
+import { InspectorControls, useBlockProps } from '@wordpress/block-editor';
 import {
 	PanelBody,
 	SelectControl,
@@ -9,13 +9,19 @@ import {
 import { useSelect } from '@wordpress/data';
 
 export default function Edit( { attributes, setAttributes } ) {
-	const { taxonomy, emptyLabel, label, showLabel } = attributes;
+	const {
+		taxonomy,
+		emptyLabel,
+		label,
+		showLabel,
+		limitToCurrentResults,
+	} = attributes;
 
 	const taxonomies = useSelect(
 		( select ) => {
 			const results = (
 				select( 'core' ).getTaxonomies( { per_page: 100 } ) || []
-			).filter( ( taxonomy ) => taxonomy.visibility.publicly_queryable );
+			).filter( ( tax ) => tax.visibility?.publicly_queryable );
 
 			if ( results && results.length > 0 && ! taxonomy ) {
 				setAttributes( {
@@ -30,15 +36,17 @@ export default function Edit( { attributes, setAttributes } ) {
 	);
 
 	const terms = useSelect(
-		( select ) => {
-			return (
-				select( 'core' ).getEntityRecords( 'taxonomy', taxonomy, {
-					number: 50,
-				} ) || []
-			);
-		},
+		( select ) =>
+			select( 'core' ).getEntityRecords( 'taxonomy', taxonomy, {
+				number: 50,
+				hide_empty: true,
+			} ) || [],
 		[ taxonomy ]
 	);
+
+	const blockProps = useBlockProps( {
+		className: 'wp-block-query-filter',
+	} );
 
 	return (
 		<>
@@ -47,18 +55,19 @@ export default function Edit( { attributes, setAttributes } ) {
 					<SelectControl
 						label={ __( 'Select Taxonomy', 'query-filter' ) }
 						value={ taxonomy }
-						options={ ( taxonomies || [] ).map( ( taxonomy ) => ( {
-							label: taxonomy.name,
-							value: taxonomy.slug,
+						options={ ( taxonomies || [] ).map( ( tax ) => ( {
+							label: tax.name,
+							value: tax.slug,
 						} ) ) }
-						onChange={ ( taxonomy ) =>
+						onChange={ ( value ) => {
+							const selected = taxonomies.find(
+								( tax ) => tax.slug === value
+							);
 							setAttributes( {
-								taxonomy,
-								label: taxonomies.find(
-									( tax ) => tax.slug === taxonomy
-								).name,
-							} )
-						}
+								taxonomy: value,
+								label: selected?.name || label,
+							} );
+						} }
 					/>
 					<TextControl
 						label={ __( 'Label', 'query-filter' ) }
@@ -67,29 +76,34 @@ export default function Edit( { attributes, setAttributes } ) {
 							'If empty then no label will be shown',
 							'query-filter'
 						) }
-						onChange={ ( label ) => setAttributes( { label } ) }
+						onChange={ ( value ) => setAttributes( { label: value } ) }
 					/>
 					<ToggleControl
 						label={ __( 'Show Label', 'query-filter' ) }
 						checked={ showLabel }
-						onChange={ ( showLabel ) =>
-							setAttributes( { showLabel } )
-						}
+						onChange={ ( value ) => setAttributes( { showLabel: value } ) }
 					/>
 					<TextControl
 						label={ __( 'Empty Choice Label', 'query-filter' ) }
 						value={ emptyLabel }
 						placeholder={ __( 'All', 'query-filter' ) }
-						onChange={ ( emptyLabel ) =>
-							setAttributes( { emptyLabel } )
+						onChange={ ( value ) =>
+							setAttributes( { emptyLabel: value } )
+						}
+					/>
+					<ToggleControl
+						label={ __( 'Only show terms in current results', 'query-filter' ) }
+						checked={ !! limitToCurrentResults }
+						onChange={ ( value ) =>
+							setAttributes( { limitToCurrentResults: value } )
 						}
 					/>
 				</PanelBody>
 			</InspectorControls>
-			<div { ...useBlockProps( { className: 'wp-block-query-filter' } ) }>
+			<div { ...blockProps }>
 				{ showLabel && (
 					<label className="wp-block-query-filter-taxonomy__label wp-block-query-filter__label">
-						{ label }
+						{ label || __( 'Taxonomy', 'query-filter' ) }
 					</label>
 				) }
 				<select
@@ -107,3 +121,4 @@ export default function Edit( { attributes, setAttributes } ) {
 		</>
 	);
 }
+

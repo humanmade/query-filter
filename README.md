@@ -14,8 +14,9 @@ Easy to use and lightweight, built using the WordPress Interactivity API.
 
 * Add a query block. This can anyhere that the query block is supported e.g. page, template, or pattern.
 * Add one of the filter blocks and configure as required:
-    * Taxonomy filter. Select which taxonomy to to use, customise the label (and whether it's shown), and customise the text used when none is selected.
+* Taxonomy filter. Select which taxonomy to to use, customise the label (and whether it's shown), and customise the text used when none is selected. Optionally enable **Show Terms in Current Results** to limit the dropdown to terms attached to the posts returned by the surrounding query.
     * Post type filter. Customise the label (and whether it's shown), as well as the text used when no filter is applied.
+* Sort filter. Presents the same ordering options available in the Query Loop block (“Order By”) so visitors can toggle between newest/oldest, alphabetical, menu order, etc. Pick which sort choices appear via checkboxes in the block settings.
     * Search block. No extra options.
  
 ![image](https://github.com/user-attachments/assets/e2f9b62d-91f7-4c22-87ac-078b4d031a60)
