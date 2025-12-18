@@ -7,8 +7,8 @@
 	"category": "theme",
 	"icon": "filter",
 	"description": "Allows users to filter by taxonomy terms when placed wihin a query loop block",
-	"ancestor": [ "core/query" ],
-	"usesContext": [ "queryId", "query" ],
+	"ancestor": ["core/query"],
+	"usesContext": ["queryId", "query"],
 	"supports": {
 		"html": false,
 		"className": true,
@@ -54,6 +54,10 @@
 		"showLabel": {
 			"type": "boolean",
 			"default": true
+		},
+		"listView": {
+			"type": "boolean",
+			"default": false
 		}
 	},
 	"textdomain": "query-filter",

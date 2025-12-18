@@ -18,7 +18,14 @@ const { state } = store( 'query-filter', {
 			const { actions } = yield import(
 				'@wordpress/interactivity-router'
 			);
-			yield actions.navigate( e.target.value );
+			// Handle both select elements (value) and links (href).
+			const url =
+				e.target.value ||
+				e.target.href ||
+				e.target.closest( 'a' )?.href;
+			if ( url ) {
+				yield actions.navigate( url );
+			}
 		},
 		*search( e ) {
 			e.preventDefault();
@@ -36,7 +43,9 @@ const { state } = store( 'query-filter', {
 			}
 
 			// Don't navigate if the search didn't really change.
-			if ( value === state.searchValue ) return;
+			if ( value === state.searchValue ) {
+				return;
+			}
 
 			state.searchValue = value;
 

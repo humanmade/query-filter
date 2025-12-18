@@ -9,7 +9,7 @@ import {
 import { useSelect } from '@wordpress/data';
 
 export default function Edit( { attributes, setAttributes } ) {
-	const { taxonomy, emptyLabel, label, showLabel } = attributes;
+	const { taxonomy, emptyLabel, label, showLabel, listView } = attributes;
 
 	const taxonomies = useSelect(
 		( select ) => {
@@ -84,25 +84,64 @@ export default function Edit( { attributes, setAttributes } ) {
 							setAttributes( { emptyLabel } )
 						}
 					/>
+					<ToggleControl
+						label={ __( 'Display as List', 'query-filter' ) }
+						checked={ listView }
+						onChange={ ( listView ) =>
+							setAttributes( { listView } )
+						}
+					/>
 				</PanelBody>
 			</InspectorControls>
 			<div { ...useBlockProps( { className: 'wp-block-query-filter' } ) }>
-				{ showLabel && (
-					<label className="wp-block-query-filter-taxonomy__label wp-block-query-filter__label">
-						{ label }
-					</label>
+				{ listView ? (
+					<>
+						{ showLabel && (
+							<div className="wp-block-query-filter-post-type__label wp-block-query-filter__label">
+								{ label }
+							</div>
+						) }
+						<ul
+							className="wp-block-query-filter-taxonomy__list wp-block-query-filter__list"
+							inert
+						>
+							<li className="wp-block-query-filter-taxonomy__item wp-block-query-filter__item wp-block-query-filter__item--active">
+								<span className="wp-block-query-filter-taxonomy__link wp-block-query-filter__link">
+									{ emptyLabel || __( 'All', 'query-filter' ) }
+								</span>
+							</li>
+							{ terms.map( ( term ) => (
+								<li
+									key={ term.slug }
+									className="wp-block-query-filter-taxonomy__item wp-block-query-filter__item"
+								>
+									<span className="wp-block-query-filter-taxonomy__link wp-block-query-filter__link">
+										{ term.name }
+									</span>
+								</li>
+							) ) }
+						</ul>
+					</>
+				) : (
+					<>
+						{ showLabel && (
+							<label className="wp-block-query-filter-taxonomy__label wp-block-query-filter__label">
+								{ label }
+							</label>
+						) }
+						<select
+							className="wp-block-query-filter-taxonomy__select wp-block-query-filter__select"
+							inert
+						>
+							<option>
+								{ emptyLabel || __( 'All', 'query-filter' ) }
+							</option>
+							{ terms.map( ( term ) => (
+								<option key={ term.slug }>{ term.name }</option>
+							) ) }
+						</select>
+					</>
 				) }
-				<select
-					className="wp-block-query-filter-taxonomy__select wp-block-query-filter__select"
-					inert
-				>
-					<option>
-						{ emptyLabel || __( 'All', 'query-filter' ) }
-					</option>
-					{ terms.map( ( term ) => (
-						<option key={ term.slug }>{ term.name }</option>
-					) ) }
-				</select>
 			</div>
 		</>
 	);

@@ -27,16 +27,44 @@ $terms = get_terms( [
 if ( is_wp_error( $terms ) || empty( $terms ) ) {
 	return;
 }
+
+$current_slug = wp_unslash( $_GET[ $query_var ] ?? '' );
 ?>
 
 <div <?php echo get_block_wrapper_attributes( [ 'class' => 'wp-block-query-filter' ] ); ?> data-wp-interactive="query-filter" data-wp-context="{}">
-	<label class="wp-block-query-filter-post-type__label wp-block-query-filter__label<?php echo $attributes['showLabel'] ? '' : ' screen-reader-text' ?>" for="<?php echo esc_attr( $id ); ?>">
-		<?php echo esc_html( $attributes['label'] ?? $taxonomy->label ); ?>
-	</label>
-	<select class="wp-block-query-filter-post-type__select wp-block-query-filter__select" id="<?php echo esc_attr( $id ); ?>" data-wp-on--change="actions.navigate">
-		<option value="<?php echo esc_attr( $base_url ) ?>"><?php echo esc_html( $attributes['emptyLabel'] ?: __( 'All', 'query-filter' ) ); ?></option>
-		<?php foreach ( $terms as $term ) : ?>
-			<option value="<?php echo esc_attr( add_query_arg( [ $query_var => $term->slug, $page_var => false ], $base_url ) ) ?>" <?php selected( $term->slug, wp_unslash( $_GET[ $query_var ] ?? '' ) ); ?>><?php echo esc_html( $term->name ); ?></option>
-		<?php endforeach; ?>
-	</select>
+	<?php if ( $attributes['listView'] ) : ?>
+		<?php if ( $attributes['showLabel'] ) : ?>
+			<div class="wp-block-query-filter-post-type__label wp-block-query-filter__label">
+				<?php echo esc_html( $attributes['label'] ?? $taxonomy->label ); ?>
+			</div>
+		<?php endif; ?>
+		<ul class="wp-block-query-filter-taxonomy__list wp-block-query-filter__list" id="<?php echo esc_attr( $id ); ?>">
+			<li class="wp-block-query-filter-taxonomy__item wp-block-query-filter__item<?php echo empty( $current_slug ) ? ' wp-block-query-filter__item--active' : ''; ?>">
+				<a href="<?php echo esc_attr( $base_url ); ?>" class="wp-block-query-filter-taxonomy__link wp-block-query-filter__link" data-wp-on--click="actions.navigate">
+					<?php echo esc_html( $attributes['emptyLabel'] ?: __( 'All', 'query-filter' ) ); ?>
+				</a>
+			</li>
+			<?php foreach ( $terms as $term ) : ?>
+				<?php
+				$term_url = add_query_arg( [ $query_var => $term->slug, $page_var => false ], $base_url );
+				$is_active = $term->slug === $current_slug;
+				?>
+				<li class="wp-block-query-filter-taxonomy__item wp-block-query-filter__item<?php echo $is_active ? ' wp-block-query-filter__item--active' : ''; ?>">
+					<a href="<?php echo esc_attr( $term_url ); ?>" class="wp-block-query-filter-taxonomy__link wp-block-query-filter__link" data-wp-on--click="actions.navigate">
+						<?php echo esc_html( $term->name ); ?>
+					</a>
+				</li>
+			<?php endforeach; ?>
+		</ul>
+	<?php else : ?>
+		<label class="wp-block-query-filter-post-type__label wp-block-query-filter__label<?php echo $attributes['showLabel'] ? '' : ' screen-reader-text' ?>" for="<?php echo esc_attr( $id ); ?>">
+			<?php echo esc_html( $attributes['label'] ?? $taxonomy->label ); ?>
+		</label>
+		<select class="wp-block-query-filter-post-type__select wp-block-query-filter__select" id="<?php echo esc_attr( $id ); ?>" data-wp-on--change="actions.navigate">
+			<option value="<?php echo esc_attr( $base_url ) ?>"><?php echo esc_html( $attributes['emptyLabel'] ?: __( 'All', 'query-filter' ) ); ?></option>
+			<?php foreach ( $terms as $term ) : ?>
+				<option value="<?php echo esc_attr( add_query_arg( [ $query_var => $term->slug, $page_var => false ], $base_url ) ) ?>" <?php selected( $term->slug, wp_unslash( $_GET[ $query_var ] ?? '' ) ); ?>><?php echo esc_html( $term->name ); ?></option>
+			<?php endforeach; ?>
+		</select>
+	<?php endif; ?>
 </div>
