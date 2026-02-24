@@ -54,6 +54,10 @@
 		"showLabel": {
 			"type": "boolean",
 			"default": true
+		},
+		"useCheckboxes": {
+			"type": "boolean",
+			"default": false
 		}
 	},
 	"textdomain": "query-filter",

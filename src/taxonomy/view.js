@@ -15,10 +15,53 @@ const { state } = store( 'query-filter', {
 	actions: {
 		*navigate( e ) {
 			e.preventDefault();
-			const { actions } = yield import(
-				'@wordpress/interactivity-router'
-			);
-			yield actions.navigate( e.target.value );
+			const { ref } = getElement();
+			let name, values = [];
+
+			// Get the current URL and preserve existing query parameters
+			const currentURL = new URL( window.location.href );
+
+			if (ref.tagName === 'INPUT' && ref.type === 'checkbox') {
+				name = ref.name;
+
+				// Handle checkboxes directly
+				const container = ref.closest('.wp-block-query-filter__checkboxes');
+				const checkboxes = container.querySelectorAll(
+					`input[name="${name}"]:checked`
+				);
+
+				// Collect all selected values
+				checkboxes.forEach((checkbox) => {
+					values.push(checkbox.value);
+				});
+
+				// Create a comma-separated string of values
+				const value = values.join(',');
+
+				// Update the URL with the new value for checkboxes
+				if (value) {
+					currentURL.searchParams.set( name, value );
+				} else {
+					currentURL.searchParams.delete( name );
+				}
+			} else {
+				// Handle other input types (e.g., <select>)
+				name = ref.name;
+				values = [ref.value];
+
+				// Check if the selected value is empty (e.g., "All")
+				if (values[0] === '') {
+					// Remove the query parameter from the URL
+					currentURL.searchParams.delete( name );
+				} else {
+					// Update the URL with the new value for the <select>
+					currentURL.searchParams.set( name, values[0] );
+				}
+			}
+
+			// Navigate to the updated URL
+			const { actions } = yield import( '@wordpress/interactivity-router' );
+			yield actions.navigate( currentURL.toString() );
 		},
 		*search( e ) {
 			e.preventDefault();

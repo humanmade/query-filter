@@ -105,10 +105,19 @@ function pre_get_posts_transpose_query_vars( WP_Query $query ) : void {
 
 			// Handle taxonomies specifically.
 			if ( get_taxonomy( $key ) ) {
+				// Allow multiple values by using array format for taxonomies.
+				$value = array_map(
+					'sanitize_text_field',
+					array_map(
+						'urldecode',
+						explode( ',', wp_unslash( $value ) ) // Split by commas
+					)
+				);
+
 				$tax_query['relation'] = 'AND';
 				$tax_query[] = [
 					'taxonomy' => $key,
-					'terms' => [ $value ],
+					'terms' => $value,
 					'field' => 'slug',
 				];
 			} else {
