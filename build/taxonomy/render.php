@@ -67,7 +67,7 @@ if ( is_wp_error( $terms ) || empty( $terms ) ) {
 			?>
 			<?php foreach ( $terms as $term ) : ?>
 				<?php
-				$is_checked   = in_array( $term->slug, $selected_terms );
+				$is_checked   = in_array( $term->slug, $selected_terms, true );
 				$new_terms    = $is_checked
 					? array_diff( $selected_terms, [ $term->slug ] )
 					: array_merge( $selected_terms, [ $term->slug ] );

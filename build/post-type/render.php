@@ -77,7 +77,7 @@ if ( empty( $post_types ) ) {
 			?>
 			<?php foreach ( $post_types as $post_type ) : ?>
 				<?php
-				$is_checked   = in_array( $post_type->name, $selected_types );
+				$is_checked   = in_array( $post_type->name, $selected_types, true );
 				$new_types    = $is_checked
 					? array_diff( $selected_types, [ $post_type->name ] )
 					: array_merge( $selected_types, [ $post_type->name ] );
