@@ -108,9 +108,7 @@ function pre_get_posts_transpose_query_vars( WP_Query $query ) : void {
 				$tax_query['relation'] = 'AND';
 
 				// Handle multiple values separated by commas (for checkbox mode)
-				$values = explode( ',', $value );
-				$values = array_map( 'trim', $values );
-				$values = array_filter( $values );
+				$values = wp_parse_list( $value );
 
 				if ( count( $values ) > 1 ) {
 					// Multiple values: OR logic (posts with ANY of these terms)
