@@ -105,18 +105,20 @@ function pre_get_posts_transpose_query_vars( WP_Query $query ) : void {
 
 			// Handle taxonomies specifically.
 			if ( get_taxonomy( $key ) ) {
+				// If multiple taxonomy filters are selected, ALL of them must match.
 				$tax_query['relation'] = 'AND';
 
 				// Handle multiple values separated by commas (for checkbox mode)
 				$values = wp_parse_list( $value );
 
 				if ( count( $values ) > 1 ) {
-					// Multiple values: OR logic (posts with ANY of these terms)
+					// If multiple terms in a taxonomy are selected, posts with
+					// ANY of the selected terms should be returned.
 					$tax_query[] = [
 						'taxonomy' => $key,
 						'terms' => $values,
 						'field' => 'slug',
-						'operator' => 'IN', // This creates OR logic
+						'operator' => 'IN',
 					];
 				} else {
 					// Single value: normal behavior
