@@ -72,9 +72,18 @@ export default function Edit( { attributes, setAttributes, context } ) {
 								value: 'checkbox',
 							},
 						] }
-						onChange={ ( displayType ) =>
-							setAttributes( { displayType } )
-						}
+						onChange={ ( nextDisplayType ) => {
+							if ( nextDisplayType === 'select' ) {
+								setAttributes( {
+									displayType: nextDisplayType,
+									layoutDirection: undefined,
+								} );
+							} else {
+								setAttributes( {
+									displayType: nextDisplayType,
+								} );
+							}
+						} }
 					/>
 					{ ( displayType === 'radio' ||
 						displayType === 'checkbox' ) && (
