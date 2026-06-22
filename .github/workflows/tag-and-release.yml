@@ -1,0 +1,47 @@
+name: Tag and Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g., v1.0.0)'
+        required: true
+
+jobs:
+  tag_and_release:
+    name: Tag and Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Check if tag already exists
+        id: check_tag
+        run: |
+          if git rev-parse "refs/tags/${{ github.event.inputs.version }}" >/dev/null 2>&1; then
+            echo "Tag already exists"
+            echo "tag_exists=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Abort if tag exists
+        if: steps.check_tag.outputs.tag_exists == 'true'
+        run: exit 1
+
+      - name: Create and push tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch origin release
+          git checkout release
+          git tag ${{ github.event.inputs.version }}
+          git push origin ${{ github.event.inputs.version }}
+
+      - name: Create GitHub Release
+        uses: ncipollo/release-action@339a81892b84b4eeb0f6e744e4574d79d0d9b8dd # v1.21.0
+        with:
+          tag: ${{ github.event.inputs.version }}
+          name: ${{ github.event.inputs.version }}
+          body: "Automated release of version ${{ github.event.inputs.version }}"
+          draft: false
+          prerelease: false
