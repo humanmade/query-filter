@@ -11,5 +11,14 @@
 			"name": "Human Made Limited",
 			"email": "hello@humanmade.com"
 		}
-	]
+	],
+	"require-dev": {
+		"humanmade/coding-standards": "^2.2"
+	},
+	"config": {
+		"allow-plugins": {
+			"composer/installers": true,
+			"dealerdirect/phpcodesniffer-composer-installer": true
+		}
+	}
 }
