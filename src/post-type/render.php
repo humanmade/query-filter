@@ -78,7 +78,9 @@ if ( empty( $post_types ) ) {
 	<?php elseif ( $display_type === 'checkbox' ) : ?>
 		<div class="wp-block-query-filter-post-type__checkbox-group wp-block-query-filter__checkbox-group<?php echo $layout_direction === 'horizontal' ? ' horizontal' : ''; ?>">
 			<?php
-			$selected_types = isset( $_GET[ $query_var ] ) ? explode( ',', sanitize_text_field( wp_unslash( $_GET[ $query_var ] ) ) ) : [];
+			$selected_types = isset( $_GET[ $query_var ] )
+				? array_map( 'sanitize_key', explode( ',', sanitize_text_field( wp_unslash( $_GET[ $query_var ] ) ) ) )
+				: [];
 			?>
 			<?php foreach ( $post_types as $post_type ) : ?>
 				<?php

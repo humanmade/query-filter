@@ -136,6 +136,12 @@ function pre_get_posts_transpose_query_vars( WP_Query $query ) : void {
 					continue;
 				}
 
+				// post_type accepts multiple comma-separated values in checkbox mode.
+				// Parse as list so WP_Query returns results from any selected post_type.
+				if ( $key === 'post_type' ) {
+					$value = wp_parse_list( $value );
+				}
+
 				$query->set(
 					$key,
 					$value
