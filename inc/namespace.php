@@ -181,6 +181,35 @@ function filter_block_type_metadata( array $metadata ) : array {
 }
 
 /**
+ * Sanitize a search value while preserving its leading and trailing whitespace.
+ *
+ * sanitize_text_field() trims surrounding whitespace. We want to preserve that
+ * so that the rendered value always matches what a user is typing, such as when
+ * they are typing a space between words. Restore outer whitespace after sanitizing.
+*
+ * @param string $value Raw, unslashed value.
+ * @return string Sanitized value with leading/trailing whitespace preserved.
+ */
+function sanitize_search_value( string $value ) : string {
+	if ( empty( $value ) ) {
+		return '';
+	}
+
+	$sanitized = sanitize_text_field( $value );
+
+	// If sanitization removed all content, echo the input back when it was
+	// purely whitespace or else collapse to empty string.
+	if ( '' === $sanitized ) {
+		return ctype_space( $value ) ? $value : '';
+	}
+
+	preg_match( '/^\s*/', $value, $leading );
+	preg_match( '/\s*$/', $value, $trailing );
+
+	return $leading[0] . $sanitized . $trailing[0];
+}
+
+/**
  * Filters the content of a single block.
  *
  * @param string    $block_content The block content.
@@ -201,14 +230,10 @@ function render_block_search( string $block_content, array $block, \WP_Block $in
 
 	$action = str_replace( '/page/' . get_query_var( 'paged', 1 ), '', add_query_arg( [ $query_var => '' ] ) );
 
-	// Note sanitize_text_field trims whitespace from start/end of string causing unexpected behaviour.
-	// phpcs:ignore HM.Security.ValidatedSanitizedInput.InputNotSanitized
-	$value = wp_unslash( $_GET[ $query_var ] ?? '' );
-	$value = urldecode( $value );
-	$value = wp_check_invalid_utf8( $value );
-	$value = wp_pre_kses_less_than( $value );
-	// phpcs:ignore WordPress.WP.AlternativeFunctions.strip_tags_strip_tags -- need to preserve whitespace.
-	$value = strip_tags( $value );
+	// Sanitize via sanitize_text_field() but keep the user's leading/trailing
+	// whitespace so type-ahead search doesn't eat a space between words.
+	// phpcs:ignore HM.Security.ValidatedSanitizedInput.InputNotSanitized -- sanitize_search_value() applies sanitize_text_field(); the raw value is only read to restore outer whitespace.
+	$value = sanitize_search_value( wp_unslash( $_GET[ $query_var ] ?? '' ) );
 
 	$block_content = new WP_HTML_Tag_Processor( $block_content );
 	$block_content->next_tag( [ 'tag_name' => 'form' ] );
