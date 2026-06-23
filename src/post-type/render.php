@@ -1,4 +1,9 @@
 <?php
+/**
+ * @var array    $attributes Block attributes array.
+ * @var WP_Block $block      WP_Block instance being rendered.
+ */
+
 global $wp_query;
 
 $id = 'query-filter-' . wp_generate_uuid4();

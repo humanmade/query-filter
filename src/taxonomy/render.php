@@ -1,4 +1,9 @@
 <?php
+/**
+ * @var array    $attributes Block attributes array.
+ * @var WP_Block $block      WP_Block instance being rendered.
+ */
+
 if ( empty( $attributes['taxonomy'] ) ) {
 	return;
 }
