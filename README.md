@@ -38,7 +38,9 @@ Built assets are not committed to `main`. Manual or Composer installs should tra
 
 ## Local Development
 
-This project uses [wp-env](https://developer.wordpress.org/block-editor/reference-guides/packages/packages-env/) to run a lightweight, containerized WordPress instance for testing purposes. These commands can be used to interact with the environment:
+This project uses [wp-env](https://developer.wordpress.org/block-editor/reference-guides/packages/packages-env/) to run a lightweight, containerized WordPress instance at [localhost:3031](http://localhost:3031) for testing purposes. The default username for the localhost environment is `admin`, with the password `password`.
+
+These commands can be used to interact with the environment:
 
 Command | Purpose
 ---- | ----
