@@ -39,8 +39,8 @@ jobs:
 
       - name: Run PHPCS
         id: phpcs
-        run: composer phpcs -- -q --report-full --report-checkstyle=phpcs-report.xml
+        run: composer phpcs -- --report-full --report-checkstyle=phpcs-report.xml
 
       - name: Annotate PR with PHPCS results
         if: ${{ always() && steps.phpcs.outcome == 'failure' }}
-        run: cs2pr phpcs-report.xml
+        run: cs2pr ./phpcs-report.xml
