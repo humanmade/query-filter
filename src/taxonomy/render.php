@@ -34,6 +34,12 @@ $terms = get_terms( [
 if ( is_wp_error( $terms ) || empty( $terms ) ) {
 	return;
 }
+
+// Non-ASCII term slugs are stored URL-encoded (e.g. "%e6%97%a5"), but arrive from $_GET
+// predecoded to raw UTF-8. Normalize the current filter value to the same form used in
+// pre_get_posts_transpose_query_vars() to compare directly against urldecode($term->slug).
+// phpcs:ignore HM.Security.ValidatedSanitizedInput.InputNotSanitized -- Sniff can't perceive the sanitize_text_field() outside the urldecode().
+$current_value = sanitize_text_field( urldecode( wp_unslash( $_GET[ $query_var ] ?? '' ) ) );
 ?>
 
 <div <?php echo get_block_wrapper_attributes( [ 'class' => 'wp-block-query-filter' ] ); ?> data-wp-interactive="query-filter" data-wp-context="{}">
@@ -47,7 +53,7 @@ if ( is_wp_error( $terms ) || empty( $terms ) ) {
 			<?php foreach ( $terms as $term ) : ?>
 				<option value="<?php
 					echo esc_attr( add_query_arg( [ $query_var => $term->slug, $page_var => false ], $base_url ) );
-				?>" <?php selected( $term->slug, sanitize_key( wp_unslash( $_GET[ $query_var ] ?? '' ) ) ); ?>><?php echo esc_html( $term->name ); ?></option>
+				?>" <?php selected( urldecode( $term->slug ), $current_value ); ?>><?php echo esc_html( $term->name ); ?></option>
 			<?php endforeach; ?>
 		</select>
 	<?php elseif ( $display_type === 'radio' ) : ?>
@@ -60,7 +66,7 @@ if ( is_wp_error( $terms ) || empty( $terms ) ) {
 				<label>
 					<input type="radio" name="<?php echo esc_attr( $id ); ?>" value="<?php
 						echo esc_attr( add_query_arg( [ $query_var => $term->slug, $page_var => false ], $base_url ) );
-					?>" data-wp-on--change="actions.navigate" <?php checked( $term->slug, sanitize_key( wp_unslash( $_GET[ $query_var ] ?? '' ) ) ); ?> />
+					?>" data-wp-on--change="actions.navigate" <?php checked( urldecode( $term->slug ), $current_value ); ?> />
 					<?php echo esc_html( $term->name ); ?>
 				</label>
 			<?php endforeach; ?>
@@ -68,14 +74,15 @@ if ( is_wp_error( $terms ) || empty( $terms ) ) {
 	<?php elseif ( $display_type === 'checkbox' ) : ?>
 		<div class="wp-block-query-filter-taxonomy__checkbox-group wp-block-query-filter__checkbox-group<?php echo $layout_direction === 'horizontal' ? ' horizontal' : ''; ?>">
 			<?php
-			$selected_terms = isset( $_GET[ $query_var ] ) ? explode( ',', sanitize_text_field( wp_unslash( $_GET[ $query_var ] ) ) ) : [];
+			$selected_terms = wp_parse_list( $current_value );
 			?>
 			<?php foreach ( $terms as $term ) : ?>
 				<?php
-				$is_checked   = in_array( $term->slug, $selected_terms, true );
+				$slug         = urldecode( $term->slug );
+				$is_checked   = in_array( $slug, $selected_terms, true );
 				$new_terms    = $is_checked
-					? array_diff( $selected_terms, [ $term->slug ] )
-					: array_merge( $selected_terms, [ $term->slug ] );
+					? array_diff( $selected_terms, [ $slug ] )
+					: array_merge( $selected_terms, [ $slug ] );
 				$new_terms = array_filter( $new_terms );
 				$checkbox_url = empty( $new_terms )
 					? $base_url
