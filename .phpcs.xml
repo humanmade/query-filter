@@ -1,0 +1,37 @@
+<?xml version="1.0"?>
+<ruleset name="Query Filter Coding Standards">
+	<description>Human Made Coding Standards</description>
+
+	<!-- What to scan -->
+	<file>./inc/</file>
+    <file>./src/</file>
+    <file>query-filter.php</file>
+
+    <exclude-pattern>./build/</exclude-pattern>
+    <exclude-pattern>./vendor/</exclude-pattern>
+
+	<!-- How to scan -->
+	<arg value="sp"/> <!-- Show sniff and progress -->
+	<arg name="colors"/> <!-- Show results with colors (disable if working on Windows). -->
+	<arg name="basepath" value="."/> <!-- Show paths as the relevant relative path. -->
+	<arg name="parallel" value="8"/> <!-- Enables parallel processing when available. -->
+
+	<!-- Support recent versions of WordPress. -->
+	<config name="minimum_supported_wp_version" value="6.8"/>
+
+	<!-- Human Made Coding Standards -->
+	<rule ref="HM">
+        <!-- These stylistic-only rules are disabled temporarily and should be fixed in follow-up. -->
+        <exclude name="PSR12.Functions.ReturnTypeDeclaration.SpaceBeforeColon" />
+        <exclude name="WordPress.Arrays.ArrayDeclarationSpacing" />
+        <exclude name="Squiz.Commenting" />
+        <exclude name="Squiz.Strings.ConcatenationSpacing" />
+        <exclude name="Generic.Commenting" />
+        <exclude name="Squiz.Commenting.FileComment.Missing" />
+        <exclude name="NormalizedArrays.Arrays.ArrayBraceSpacing" />
+	</rule>
+
+    <rule ref="HM.Files.NamespaceDirectoryName.NoIncDirectory">
+        <exclude-pattern>query-filter.php</exclude-pattern>
+    </rule>
+</ruleset>
