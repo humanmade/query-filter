@@ -179,10 +179,12 @@ function render_block_search( string $block_content, array $block, \WP_Block $in
 	$action = str_replace( '/page/'. get_query_var( 'paged', 1 ), '', add_query_arg( [ $query_var => '' ] ) );
 
 	// Note sanitize_text_field trims whitespace from start/end of string causing unexpected behaviour.
+	// phpcs:ignore HM.Security.ValidatedSanitizedInput.InputNotSanitized
 	$value = wp_unslash( $_GET[ $query_var ] ?? '' );
 	$value = urldecode( $value );
 	$value = wp_check_invalid_utf8( $value );
 	$value = wp_pre_kses_less_than( $value );
+	// phpcs:ignore WordPress.WP.AlternativeFunctions.strip_tags_strip_tags -- need to preserve whitespace.
 	$value = strip_tags( $value );
 
 	wp_interactivity_state( 'query-filter', [
