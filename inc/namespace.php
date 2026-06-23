@@ -73,7 +73,7 @@ function filter_query_loop_block_query_vars( array $query, \WP_Block $block, int
 /**
  * Fires after the query variable object is created, but before the actual query is run.
  *
- * @param  WP_Query $query The WP_Query instance (passed by reference).
+ * @param WP_Query $query The WP_Query instance (passed by reference).
  */
 function pre_get_posts_transpose_query_vars( WP_Query $query ) : void {
 	$query_id = $query->get( 'query_id', null );
@@ -105,18 +105,41 @@ function pre_get_posts_transpose_query_vars( WP_Query $query ) : void {
 
 			// Handle taxonomies specifically.
 			if ( get_taxonomy( $key ) ) {
+				// If multiple taxonomy filters are selected, ALL of them must match.
 				$tax_query['relation'] = 'AND';
-				$tax_query[] = [
-					'taxonomy' => $key,
-					'terms' => [ $value ],
-					'field' => 'slug',
-				];
+
+				// Handle multiple values separated by commas (for checkbox mode)
+				$values = wp_parse_list( $value );
+
+				if ( count( $values ) > 1 ) {
+					// If multiple terms in a taxonomy are selected, posts with
+					// ANY of the selected terms should be returned.
+					$tax_query[] = [
+						'taxonomy' => $key,
+						'terms' => $values,
+						'field' => 'slug',
+						'operator' => 'IN',
+					];
+				} else {
+					// Single value: normal behavior
+					$tax_query[] = [
+						'taxonomy' => $key,
+						'terms' => $values,
+						'field' => 'slug',
+					];
+				}
 			} else {
 				// Other options should map directly to query vars.
 				$key = sanitize_key( $key );
 
 				if ( ! in_array( $key, array_keys( $valid_keys ), true ) ) {
 					continue;
+				}
+
+				// post_type accepts multiple comma-separated values in checkbox mode.
+				// Parse as list so WP_Query returns results from any selected post_type.
+				if ( $key === 'post_type' ) {
+					$value = wp_parse_list( $value );
 				}
 
 				$query->set(
@@ -176,13 +199,15 @@ function render_block_search( string $block_content, array $block, \WP_Block $in
 		? sprintf( 'query-%d-s', $instance->context['queryId'] ?? 0 )
 		: 'query-s';
 
-	$action = str_replace( '/page/'. get_query_var( 'paged', 1 ), '', add_query_arg( [ $query_var => '' ] ) );
+	$action = str_replace( '/page/' . get_query_var( 'paged', 1 ), '', add_query_arg( [ $query_var => '' ] ) );
 
 	// Note sanitize_text_field trims whitespace from start/end of string causing unexpected behaviour.
+	// phpcs:ignore HM.Security.ValidatedSanitizedInput.InputNotSanitized
 	$value = wp_unslash( $_GET[ $query_var ] ?? '' );
 	$value = urldecode( $value );
 	$value = wp_check_invalid_utf8( $value );
 	$value = wp_pre_kses_less_than( $value );
+	// phpcs:ignore WordPress.WP.AlternativeFunctions.strip_tags_strip_tags -- need to preserve whitespace.
 	$value = strip_tags( $value );
 
 	wp_interactivity_state( 'query-filter', [
