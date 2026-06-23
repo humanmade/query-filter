@@ -57,7 +57,7 @@ if ( empty( $post_types ) ) {
 		<select class="wp-block-query-filter-post-type__select wp-block-query-filter__select" id="<?php echo esc_attr( $id ); ?>" data-wp-on--change="actions.navigate">
 		<option value="<?php echo esc_attr( $base_url ) ?>"><?php echo esc_html( $attributes['emptyLabel'] ?: __( 'All', 'query-filter' ) ); ?></option>
 		<?php foreach ( $post_types as $post_type ) : ?>
-			<option value="<?php echo esc_attr( add_query_arg( [ $query_var => $post_type->name, $page_var => false ], $base_url ) ) ?>" <?php selected( $post_type->name, wp_unslash( $_GET[ $query_var ] ?? '' ) ); ?>><?php echo esc_html( $post_type->label ); ?></option>
+			<option value="<?php echo esc_attr( add_query_arg( [ $query_var => $post_type->name, $page_var => false ], $base_url ) ) ?>" <?php selected( $post_type->name, sanitize_key( wp_unslash( $_GET[ $query_var ] ?? '' ) ) ); ?>><?php echo esc_html( $post_type->label ); ?></option>
 		<?php endforeach; ?>
 		</select>
 	<?php elseif ( $display_type === 'radio' ) : ?>
@@ -70,7 +70,7 @@ if ( empty( $post_types ) ) {
 				<label>
 					<input type="radio" name="<?php echo esc_attr( $id ); ?>" value="<?php
 						echo esc_attr( add_query_arg( [ $query_var => $post_type->name, $page_var => false ], $base_url ) );
-					?>" data-wp-on--change="actions.navigate" <?php checked( $post_type->name, wp_unslash( $_GET[ $query_var ] ?? '' ) ); ?> />
+					?>" data-wp-on--change="actions.navigate" <?php checked( $post_type->name, sanitize_key( wp_unslash( $_GET[ $query_var ] ?? '' ) ) ); ?> />
 					<?php echo esc_html( $post_type->label ); ?>
 				</label>
 			<?php endforeach; ?>
@@ -78,7 +78,7 @@ if ( empty( $post_types ) ) {
 	<?php elseif ( $display_type === 'checkbox' ) : ?>
 		<div class="wp-block-query-filter-post-type__checkbox-group wp-block-query-filter__checkbox-group<?php echo $layout_direction === 'horizontal' ? ' horizontal' : ''; ?>">
 			<?php
-			$selected_types = isset( $_GET[ $query_var ] ) ? explode( ',', wp_unslash( $_GET[ $query_var ] ) ) : [];
+			$selected_types = isset( $_GET[ $query_var ] ) ? explode( ',', sanitize_text_field( wp_unslash( $_GET[ $query_var ] ) ) ) : [];
 			?>
 			<?php foreach ( $post_types as $post_type ) : ?>
 				<?php
@@ -89,7 +89,7 @@ if ( empty( $post_types ) ) {
 				$new_types = array_filter( $new_types );
 				$checkbox_url = empty( $new_types )
 					? $base_url
-					: add_query_arg( [ $query_var => implode( ',', $new_types ), $page_var => false, ], $base_url );
+					: add_query_arg( [ $query_var => implode( ',', $new_types ), $page_var => false ], $base_url );
 				?>
 				<label>
 					<input type="checkbox" value="<?php echo esc_attr( $checkbox_url ); ?>" data-wp-on--change="actions.navigate" <?php checked( $is_checked ); ?> />

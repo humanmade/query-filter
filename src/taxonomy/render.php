@@ -47,7 +47,7 @@ if ( is_wp_error( $terms ) || empty( $terms ) ) {
 			<?php foreach ( $terms as $term ) : ?>
 				<option value="<?php
 					echo esc_attr( add_query_arg( [ $query_var => $term->slug, $page_var => false ], $base_url ) );
-				?>" <?php selected( $term->slug, wp_unslash( $_GET[ $query_var ] ?? '' ) ); ?>><?php echo esc_html( $term->name ); ?></option>
+				?>" <?php selected( $term->slug, sanitize_key( wp_unslash( $_GET[ $query_var ] ?? '' ) ) ); ?>><?php echo esc_html( $term->name ); ?></option>
 			<?php endforeach; ?>
 		</select>
 	<?php elseif ( $display_type === 'radio' ) : ?>
@@ -60,7 +60,7 @@ if ( is_wp_error( $terms ) || empty( $terms ) ) {
 				<label>
 					<input type="radio" name="<?php echo esc_attr( $id ); ?>" value="<?php
 						echo esc_attr( add_query_arg( [ $query_var => $term->slug, $page_var => false ], $base_url ) );
-					?>" data-wp-on--change="actions.navigate" <?php checked( $term->slug, wp_unslash( $_GET[ $query_var ] ?? '' ) ); ?> />
+					?>" data-wp-on--change="actions.navigate" <?php checked( $term->slug, sanitize_key( wp_unslash( $_GET[ $query_var ] ?? '' ) ) ); ?> />
 					<?php echo esc_html( $term->name ); ?>
 				</label>
 			<?php endforeach; ?>
@@ -68,7 +68,7 @@ if ( is_wp_error( $terms ) || empty( $terms ) ) {
 	<?php elseif ( $display_type === 'checkbox' ) : ?>
 		<div class="wp-block-query-filter-taxonomy__checkbox-group wp-block-query-filter__checkbox-group<?php echo $layout_direction === 'horizontal' ? ' horizontal' : ''; ?>">
 			<?php
-			$selected_terms = isset( $_GET[ $query_var ] ) ? explode( ',', wp_unslash( $_GET[ $query_var ] ) ) : [];
+			$selected_terms = isset( $_GET[ $query_var ] ) ? explode( ',', sanitize_text_field( wp_unslash( $_GET[ $query_var ] ) ) ) : [];
 			?>
 			<?php foreach ( $terms as $term ) : ?>
 				<?php
