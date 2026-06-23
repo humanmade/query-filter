@@ -29,6 +29,10 @@
         <exclude name="Generic.Commenting" />
         <exclude name="Squiz.Commenting.FileComment.Missing" />
         <exclude name="NormalizedArrays.Arrays.ArrayBraceSpacing" />
+
+        <!-- Requiring inline tags to be on newlines makes render.php partials harder to read. -->
+        <exclude name="Squiz.PHP.EmbeddedPhp.ContentBeforeOpen" />
+        <exclude name="Squiz.PHP.EmbeddedPhp.ContentAfterEnd" />
 	</rule>
 
     <rule ref="HM.Files.NamespaceDirectoryName.NoIncDirectory">
