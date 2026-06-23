@@ -183,7 +183,7 @@ function render_block_search( string $block_content, array $block, \WP_Block $in
 	$value = urldecode( $value );
 	$value = wp_check_invalid_utf8( $value );
 	$value = wp_pre_kses_less_than( $value );
-	$value = strip_tags( $value );
+	$value = strip_tags( $value ); // phpcs:ignore WordPress.WP.AlternativeFunctions.strip_tags_strip_tags -- wp_strip_all_tags() trims whitespace, which this search value intentionally preserves.
 
 	wp_interactivity_state( 'query-filter', [
 		'searchValue' => $value,
