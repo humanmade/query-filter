@@ -335,16 +335,16 @@
         },
         {
             "name": "humanmade/coding-standards",
-            "version": "v2.2.0",
+            "version": "v2.2.1",
             "source": {
                 "type": "git",
                 "url": "https://github.com/humanmade/coding-standards.git",
-                "reference": "96fb170e1b81307ca4e73dbc22b44a62fe5f8534"
+                "reference": "601ff015e90254a7be77c5b1ce262df6df089fdb"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/humanmade/coding-standards/zipball/96fb170e1b81307ca4e73dbc22b44a62fe5f8534",
-                "reference": "96fb170e1b81307ca4e73dbc22b44a62fe5f8534",
+                "url": "https://api.github.com/repos/humanmade/coding-standards/zipball/601ff015e90254a7be77c5b1ce262df6df089fdb",
+                "reference": "601ff015e90254a7be77c5b1ce262df6df089fdb",
                 "shasum": ""
             },
             "require": {
@@ -367,9 +367,9 @@
             "description": "Human Made Coding Standards",
             "support": {
                 "issues": "https://github.com/humanmade/coding-standards/issues",
-                "source": "https://github.com/humanmade/coding-standards/tree/v2.2.0"
+                "source": "https://github.com/humanmade/coding-standards/tree/v2.2.1"
             },
-            "time": "2026-06-22T17:25:44+00:00"
+            "time": "2026-06-23T13:24:51+00:00"
         },
         {
             "name": "phpcompatibility/php-compatibility",
