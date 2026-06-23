@@ -1,0 +1,15 @@
+{
+	"port": 3031,
+	"testsEnvironment": false,
+	"config": {
+		"SCRIPT_DEBUG": true,
+		"WP_DEBUG_DISPLAY": false,
+		"WP_DEBUG": true,
+		"WP_DEVELOPMENT_MODE": "plugin"
+	},
+	"plugins": [
+		".",
+		"https://downloads.wordpress.org/plugin/advanced-query-loop.zip",
+		"https://downloads.wordpress.org/plugin/query-monitor.zip"
+	]
+}
