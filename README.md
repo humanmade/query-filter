@@ -33,3 +33,25 @@ This plugin is available on packagist.
 1. Download the plugin from the [GitHub repository](https://github.com/humanmade/query-filter).
 2. Upload the plugin to your site's `wp-content/plugins` directory.
 3. Activate the plugin from the WordPress admin.
+
+Built assets are not committed to `main`. Manual or Composer installs should track the `release` branch (or a tagged release), which contains the compiled `build` directory.
+
+## Release Process
+
+Merges to `main` automatically [build](https://github.com/humanmade/query-filter/actions/workflows/build-release-branch.yml) to the `release` branch. A project may track the `release` branch using [Composer](https://getcomposer.org/) to pull in the latest built beta version.
+
+Commits on the `release` branch may be tagged for installation via [Packagist](https://packagist.org/packages/humanmade/query-filter) and marked as releases in GitHub for manual download, using a manually-dispatched ["Tag and Release" GH Actions workflow](https://github.com/humanmade/query-filter/actions/workflows/tag-and-release.yml).
+
+To tag a new release:
+
+1. Choose the target version number using [semantic versioning](https://semver.org/).
+2. Check out a `prepare-v#.#.#` branch and bump the `Version` in the [query-filter.php](./query-filter.php) PHPDoc header.
+3. Open a pull request titled "Prepare release v#.#.#".
+4. Review and merge the "Prepare release" pull request.
+5. Wait for the `release` branch to [update](https://github.com/humanmade/query-filter/actions/workflows/build-release-branch.yml) with the build that includes the new version number.
+6. On the ["Tag and Release" GH Action page](https://github.com/humanmade/query-filter/actions/workflows/tag-and-release.yml):
+   - Click "Run workflow" in the `workflow_dispatch` banner.
+   - Fill out the "Version tag" field with your target version number. This must match the `Version` in `query-filter.php`. Use the format `v#.#.#`.
+   - Click "Run workflow" to apply the specified tag to the `release` branch.
+
+Once the workflow completes, the new version is [tagged](https://github.com/humanmade/query-filter/tags) and listed in [releases](https://github.com/humanmade/query-filter/releases).
