@@ -181,30 +181,38 @@ function filter_block_type_metadata( array $metadata ) : array {
 }
 
 /**
- * Sanitize a search value while preserving its leading and trailing whitespace.
+ * Sanitize a search query value.
  *
  * sanitize_text_field() trims surrounding whitespace. We want to preserve that
  * so that the rendered value always matches what a user is typing, such as when
  * they are typing a space between words. Restore outer whitespace after sanitizing.
 *
- * @param string $value Raw, unslashed value.
+ * @param string $query_var Name of query var to capture and sanitize.
  * @return string Sanitized value with leading/trailing whitespace preserved.
  */
-function sanitize_search_value( string $value ) : string {
+function sanitize_search_query_var( string $query_var ) : string {
+	if ( empty( $_GET[ $query_var ] ) ) {
+		return '';
+	}
+
+	// phpcs:ignore HM.Security.ValidatedSanitizedInput.InputNotSanitized -- Intermediate reference to capture whitespace only, sanitized below.
+	$value = wp_unslash( $_GET[ $query_var ] );
+
 	if ( empty( $value ) ) {
 		return '';
 	}
 
 	$sanitized = sanitize_text_field( $value );
 
-	// If sanitization removed all content, echo the input back when it was
-	// purely whitespace or else collapse to empty string.
-	if ( '' === $sanitized ) {
-		return ctype_space( $value ) ? $value : '';
-	}
-
+	// Capture surrounding whitespace.
 	preg_match( '/^\s*/', $value, $leading );
 	preg_match( '/\s*$/', $value, $trailing );
+
+	// If sanitization removed all content, leading and trailing space may be
+	// the same characters. Only return the trailing space, to avoid doubling.
+	if ( '' === $sanitized ) {
+		return $trailing[0];
+	}
 
 	return $leading[0] . $sanitized . $trailing[0];
 }
@@ -230,10 +238,7 @@ function render_block_search( string $block_content, array $block, \WP_Block $in
 
 	$action = str_replace( '/page/' . get_query_var( 'paged', 1 ), '', add_query_arg( [ $query_var => '' ] ) );
 
-	// Sanitize via sanitize_text_field() but keep the user's leading/trailing
-	// whitespace so type-ahead search doesn't eat a space between words.
-	// phpcs:ignore HM.Security.ValidatedSanitizedInput.InputNotSanitized -- sanitize_search_value() applies sanitize_text_field(); the raw value is only read to restore outer whitespace.
-	$value = sanitize_search_value( wp_unslash( $_GET[ $query_var ] ?? '' ) );
+	$search_value = sanitize_search_query_var( $query_var );
 
 	$block_content = new WP_HTML_Tag_Processor( $block_content );
 	$block_content->next_tag( [ 'tag_name' => 'form' ] );
@@ -241,11 +246,11 @@ function render_block_search( string $block_content, array $block, \WP_Block $in
 	$block_content->set_attribute( 'data-wp-interactive', 'query-filter' );
 	$block_content->set_attribute( 'data-wp-on--submit', 'actions.search' );
 	// Scope search to block context so multiple searchable query loops may coexist.
-	$block_content->set_attribute( 'data-wp-context', wp_json_encode( [ 'searchValue' => $value ] ) );
+	$block_content->set_attribute( 'data-wp-context', wp_json_encode( [ 'searchValue' => $search_value ] ) );
 	$block_content->next_tag( [ 'tag_name' => 'input', 'class_name' => 'wp-block-search__input' ] );
 	$block_content->set_attribute( 'name', $query_var );
 	$block_content->set_attribute( 'inputmode', 'search' );
-	$block_content->set_attribute( 'value', $value );
+	$block_content->set_attribute( 'value', $search_value );
 	$block_content->set_attribute( 'data-wp-bind--value', 'context.searchValue' );
 	$block_content->set_attribute( 'data-wp-on--input', 'actions.search' );
 
