@@ -48,7 +48,7 @@ if ( empty( $post_types ) ) {
 	<select class="wp-block-query-filter-post-type__select wp-block-query-filter__select" id="<?php echo esc_attr( $id ); ?>" data-wp-on--change="actions.navigate">
 		<option value="<?php echo esc_attr( $base_url ) ?>"><?php echo esc_html( $attributes['emptyLabel'] ?: __( 'All', 'query-filter' ) ); ?></option>
 		<?php foreach ( $post_types as $post_type ) : ?>
-			<option value="<?php echo esc_attr( add_query_arg( [ $query_var => $post_type->name, $page_var => false ], $base_url ) ) ?>" <?php selected( $post_type->name, wp_unslash( $_GET[ $query_var ] ?? '' ) ); ?>><?php echo esc_html( $post_type->label ); ?></option>
+			<option value="<?php echo esc_attr( add_query_arg( [ $query_var => $post_type->name, $page_var => false ], $base_url ) ) ?>" <?php selected( $post_type->name, sanitize_key( wp_unslash( $_GET[ $query_var ] ?? '' ) ) ); ?>><?php echo esc_html( $post_type->label ); ?></option>
 		<?php endforeach; ?>
 	</select>
 </div>
