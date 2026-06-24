@@ -1,4 +1,4 @@
-import { store, getElement } from '@wordpress/interactivity';
+import { store, getContext, getElement } from '@wordpress/interactivity';
 
 const updateURL = async ( action, value, name ) => {
 	const url = new URL( action );
@@ -11,7 +11,7 @@ const updateURL = async ( action, value, name ) => {
 	await actions.navigate( url.toString() );
 };
 
-const { state } = store( 'query-filter', {
+store( 'query-filter', {
 	actions: {
 		*navigate( e ) {
 			e.preventDefault();
@@ -22,6 +22,8 @@ const { state } = store( 'query-filter', {
 		},
 		*search( e ) {
 			e.preventDefault();
+			// Scope search to block context so multiple searchable query loops may coexist.
+			const context = getContext();
 			const { ref } = getElement();
 			let action, name, value;
 			if ( ref.tagName === 'FORM' ) {
@@ -36,9 +38,9 @@ const { state } = store( 'query-filter', {
 			}
 
 			// Don't navigate if the search didn't really change.
-			if ( value === state.searchValue ) return;
+			if ( value === context.searchValue ) return;
 
-			state.searchValue = value;
+			context.searchValue = value;
 
 			yield updateURL( action, value, name );
 		},
