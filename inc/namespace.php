@@ -191,14 +191,14 @@ function filter_block_type_metadata( array $metadata ) : array {
  * @return string Sanitized value with leading/trailing whitespace preserved.
  */
 function sanitize_search_query_var( string $query_var ) : string {
-	if ( empty( $_GET[ $query_var ] ) ) {
+	if ( ! isset( $_GET[ $query_var ] ) ) {
 		return '';
 	}
 
 	// phpcs:ignore HM.Security.ValidatedSanitizedInput.InputNotSanitized -- Intermediate reference to capture whitespace only, sanitized below.
 	$value = wp_unslash( $_GET[ $query_var ] );
 
-	if ( empty( $value ) ) {
+	if ( $value === '' ) {
 		return '';
 	}
 
