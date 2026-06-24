@@ -186,7 +186,7 @@ function filter_block_type_metadata( array $metadata ) : array {
  * sanitize_text_field() trims surrounding whitespace. We want to preserve that
  * so that the rendered value always matches what a user is typing, such as when
  * they are typing a space between words. Restore outer whitespace after sanitizing.
-*
+ *
  * @param string $query_var Name of query var to capture and sanitize.
  * @return string Sanitized value with leading/trailing whitespace preserved.
  */
