@@ -210,7 +210,7 @@ function sanitize_search_query_var( string $query_var ) : string {
 
 	// If sanitization removed all content, leading and trailing space may be
 	// the same characters. Only return the trailing space, to avoid doubling.
-	if ( '' === $sanitized ) {
+	if ( $sanitized === '' && ( $leading[0] === $trailing[0] ) ) {
 		return $trailing[0];
 	}
 
