@@ -20,6 +20,10 @@ store( 'query-filter', {
 			);
 			yield actions.navigate( e.target.value );
 		},
+		toggleAllTerms() {
+			const context = getContext();
+			context.showAllTerms = ! context.showAllTerms;
+		},
 		*search( e ) {
 			e.preventDefault();
 			// Scope search to block context so multiple searchable query loops may coexist.

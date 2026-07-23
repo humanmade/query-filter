@@ -1,6 +1,7 @@
 import { __ } from '@wordpress/i18n';
 import { useBlockProps, InspectorControls } from '@wordpress/block-editor';
 import {
+	FormTokenField,
 	PanelBody,
 	SelectControl,
 	TextControl,
@@ -18,6 +19,10 @@ export default function Edit( { attributes, setAttributes } ) {
 		showLabel,
 		displayType,
 		layoutDirection,
+		includeTerms,
+		excludeTerms,
+		maxVisibleTerms,
+		showAllLabel,
 	} = attributes;
 
 	const taxonomies = useSelect(
@@ -42,12 +47,37 @@ export default function Edit( { attributes, setAttributes } ) {
 		( select ) => {
 			return (
 				select( 'core' ).getEntityRecords( 'taxonomy', taxonomy, {
-					number: 50,
+					per_page: 100,
 				} ) || []
 			);
 		},
 		[ taxonomy ]
 	);
+
+	// Term selection is stored as slugs, but presented to editors as names.
+	const termNames = terms.map( ( term ) => term.name );
+	const slugsToNames = ( slugs ) =>
+		slugs
+			.map(
+				( slug ) => terms.find( ( term ) => term.slug === slug )?.name
+			)
+			.filter( Boolean );
+	const namesToSlugs = ( names ) =>
+		names
+			.map(
+				( name ) => terms.find( ( term ) => term.name === name )?.slug
+			)
+			.filter( Boolean );
+
+	const isCurated = includeTerms.length > 0;
+
+	// The preview mirrors what the front end will render, so an editor can see
+	// the effect of curation and ordering without leaving the canvas.
+	const previewTerms = isCurated
+		? includeTerms
+				.map( ( slug ) => terms.find( ( term ) => term.slug === slug ) )
+				.filter( Boolean )
+		: terms.filter( ( term ) => ! excludeTerms.includes( term.slug ) );
 
 	return (
 		<>
@@ -155,6 +185,75 @@ export default function Edit( { attributes, setAttributes } ) {
 						}
 					/>
 				</PanelBody>
+				<PanelBody
+					title={ __( 'Terms', 'query-filter' ) }
+					initialOpen={ false }
+				>
+					<FormTokenField
+						label={ __(
+							'Include only these terms',
+							'query-filter'
+						) }
+						value={ slugsToNames( includeTerms ) }
+						suggestions={ termNames }
+						onChange={ ( names ) =>
+							setAttributes( {
+								includeTerms: namesToSlugs( names ),
+							} )
+						}
+						help={ __(
+							'Leave empty to show every term with posts. When set, only these terms appear, in the order listed.',
+							'query-filter'
+						) }
+						__nextHasNoMarginBottom
+						__next40pxDefaultSize
+					/>
+					{ ! isCurated && (
+						<FormTokenField
+							label={ __(
+								'Exclude these terms',
+								'query-filter'
+							) }
+							value={ slugsToNames( excludeTerms ) }
+							suggestions={ termNames }
+							onChange={ ( names ) =>
+								setAttributes( {
+									excludeTerms: namesToSlugs( names ),
+								} )
+							}
+							__nextHasNoMarginBottom
+							__next40pxDefaultSize
+						/>
+					) }
+					<TextControl
+						label={ __(
+							'Terms shown before "show all"',
+							'query-filter'
+						) }
+						type="number"
+						min={ 0 }
+						value={ maxVisibleTerms }
+						onChange={ ( value ) =>
+							setAttributes( {
+								maxVisibleTerms: parseInt( value, 10 ) || 0,
+							} )
+						}
+						help={ __(
+							'Set to 0 to show all terms with no toggle.',
+							'query-filter'
+						) }
+					/>
+					{ maxVisibleTerms > 0 && (
+						<TextControl
+							label={ __( 'Show all label', 'query-filter' ) }
+							value={ showAllLabel }
+							placeholder={ __( 'See all', 'query-filter' ) }
+							onChange={ ( value ) =>
+								setAttributes( { showAllLabel: value } )
+							}
+						/>
+					) }
+				</PanelBody>
 			</InspectorControls>
 			<div { ...useBlockProps( { className: 'wp-block-query-filter' } ) }>
 				{ showLabel && (
@@ -170,7 +269,7 @@ export default function Edit( { attributes, setAttributes } ) {
 						<option>
 							{ emptyLabel || __( 'All', 'query-filter' ) }
 						</option>
-						{ terms.map( ( term ) => (
+						{ previewTerms.map( ( term ) => (
 							<option key={ term.slug }>{ term.name }</option>
 						) ) }
 					</select>
@@ -192,7 +291,7 @@ export default function Edit( { attributes, setAttributes } ) {
 							/>
 							{ emptyLabel || __( 'All', 'query-filter' ) }
 						</label>
-						{ terms.map( ( term ) => (
+						{ previewTerms.map( ( term ) => (
 							<label key={ term.slug }>
 								<input
 									type="radio"
@@ -212,7 +311,7 @@ export default function Edit( { attributes, setAttributes } ) {
 								: ''
 						}` }
 					>
-						{ terms.map( ( term ) => (
+						{ previewTerms.map( ( term ) => (
 							<label key={ term.slug }>
 								<input type="checkbox" inert />
 								{ term.name }
