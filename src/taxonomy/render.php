@@ -25,13 +25,9 @@ if ( empty( $block->context['query']['inherit'] ) ) {
 	$base_url = str_replace( '/page/' . get_query_var( 'paged' ), '', remove_query_arg( [ $query_var, $page_var ] ) );
 }
 
-$terms = get_terms( [
-	'hide_empty' => true,
-	'taxonomy' => $attributes['taxonomy'],
-	'number' => 100,
-] );
+$terms = \HM\Query_Loop_Filter\get_filter_terms( $attributes );
 
-if ( is_wp_error( $terms ) || empty( $terms ) ) {
+if ( empty( $terms ) ) {
 	return;
 }
 
@@ -40,9 +36,56 @@ if ( is_wp_error( $terms ) || empty( $terms ) ) {
 // pre_get_posts_transpose_query_vars() to compare directly against urldecode($term->slug).
 // phpcs:ignore HM.Security.ValidatedSanitizedInput.InputNotSanitized -- Sniff can't perceive the sanitize_text_field() outside the urldecode().
 $current_value = sanitize_text_field( urldecode( wp_unslash( $_GET[ $query_var ] ?? '' ) ) );
+
+$selected_terms = wp_parse_list( $current_value );
+
+// Terms past the cap are collapsed behind a "show all" toggle. A term the visitor has
+// already selected is always visible, so the control never hides its own active state.
+$max_visible = (int) ( $attributes['maxVisibleTerms'] ?? 0 );
+$has_overflow = $max_visible > 0 && count( $terms ) > $max_visible;
+$show_all_label = $attributes['showAllLabel'] ?: __( 'See all', 'query-filter' );
+
+/**
+ * Return whether a term should be hidden behind the "show all" toggle.
+ *
+ * @param int     $index Position of the term in the rendered list.
+ * @param WP_Term $term  Term being rendered.
+ * @return bool True when the term belongs to the collapsed overflow.
+ */
+$is_overflow_term = function ( int $index, WP_Term $term ) use ( $has_overflow, $max_visible, $selected_terms ) : bool {
+	if ( ! $has_overflow || $index < $max_visible ) {
+		return false;
+	}
+
+	return ! in_array( urldecode( $term->slug ), $selected_terms, true );
+};
+
+/**
+ * Build the URL that toggles a term on or off within the current selection.
+ *
+ * @param WP_Term $term Term to toggle.
+ * @return string URL representing the selection with this term flipped.
+ */
+$toggle_url = function ( WP_Term $term ) use ( $selected_terms, $query_var, $page_var, $base_url ) : string {
+	$slug = urldecode( $term->slug );
+	$next = in_array( $slug, $selected_terms, true )
+		? array_diff( $selected_terms, [ $slug ] )
+		: array_merge( $selected_terms, [ $slug ] );
+	$next = array_filter( $next );
+
+	return empty( $next )
+		? $base_url
+		: add_query_arg( [ $query_var => implode( ',', $next ), $page_var => false ], $base_url );
+};
+
+$context = [];
+
+if ( $has_overflow ) {
+	$context['showAllTerms'] = false;
+}
 ?>
 
-<div <?php echo get_block_wrapper_attributes( [ 'class' => 'wp-block-query-filter' ] ); ?> data-wp-interactive="query-filter" data-wp-context="{}">
+<div <?php echo get_block_wrapper_attributes( [ 'class' => 'wp-block-query-filter' ] ); ?> data-wp-interactive="query-filter" data-wp-context="<?php echo esc_attr( wp_json_encode( (object) $context ) ); ?>">
 	<label class="wp-block-query-filter-taxonomy__label wp-block-query-filter__label<?php echo $attributes['showLabel'] ? '' : ' screen-reader-text'; ?>" for="<?php echo esc_attr( $id ); ?>">
 		<?php echo esc_html( $attributes['label'] ?? $taxonomy->label ); ?>
 	</label>
@@ -73,26 +116,17 @@ $current_value = sanitize_text_field( urldecode( wp_unslash( $_GET[ $query_var ]
 		</div>
 	<?php elseif ( $display_type === 'checkbox' ) : ?>
 		<div class="wp-block-query-filter-taxonomy__checkbox-group wp-block-query-filter__checkbox-group<?php echo $layout_direction === 'horizontal' ? ' horizontal' : ''; ?>">
-			<?php
-			$selected_terms = wp_parse_list( $current_value );
-			?>
-			<?php foreach ( $terms as $term ) : ?>
-				<?php
-				$slug         = urldecode( $term->slug );
-				$is_checked   = in_array( $slug, $selected_terms, true );
-				$new_terms    = $is_checked
-					? array_diff( $selected_terms, [ $slug ] )
-					: array_merge( $selected_terms, [ $slug ] );
-				$new_terms = array_filter( $new_terms );
-				$checkbox_url = empty( $new_terms )
-					? $base_url
-					: add_query_arg( [ $query_var => implode( ',', $new_terms ), $page_var => false ], $base_url );
-				?>
-				<label>
-					<input type="checkbox" value="<?php echo esc_attr( $checkbox_url ); ?>" data-wp-on--change="actions.navigate" <?php checked( $is_checked ); ?> />
+			<?php foreach ( $terms as $index => $term ) : ?>
+				<label<?php echo $is_overflow_term( $index, $term ) ? ' class="is-overflow-term" data-wp-bind--hidden="!context.showAllTerms"' : ''; ?>>
+					<input type="checkbox" value="<?php echo esc_attr( $toggle_url( $term ) ); ?>" data-wp-on--change="actions.navigate" <?php checked( in_array( urldecode( $term->slug ), $selected_terms, true ) ); ?> />
 					<?php echo esc_html( $term->name ); ?>
 				</label>
 			<?php endforeach; ?>
+			<?php if ( $has_overflow ) : ?>
+				<button type="button" class="wp-block-query-filter__show-all" data-wp-on--click="actions.toggleAllTerms" data-wp-bind--hidden="context.showAllTerms">
+					<?php echo esc_html( $show_all_label ); ?>
+				</button>
+			<?php endif; ?>
 		</div>
 	<?php endif; ?>
 </div>

@@ -62,6 +62,24 @@
 		"layoutDirection": {
 			"type": "string",
 			"default": "vertical"
+		},
+		"includeTerms": {
+			"type": "array",
+			"items": { "type": "string" },
+			"default": []
+		},
+		"excludeTerms": {
+			"type": "array",
+			"items": { "type": "string" },
+			"default": []
+		},
+		"maxVisibleTerms": {
+			"type": "number",
+			"default": 0
+		},
+		"showAllLabel": {
+			"type": "string",
+			"default": ""
 		}
 	},
 	"textdomain": "query-filter",

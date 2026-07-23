@@ -166,6 +166,62 @@ function pre_get_posts_transpose_query_vars( WP_Query $query ) : void {
 }
 
 /**
+ * Resolve the terms a taxonomy filter block should offer.
+ *
+ * Two modes, selected by whether `includeTerms` is populated:
+ *
+ * - Curated: render exactly the listed terms, in the order given. Empty terms
+ *   are kept, because naming a term explicitly is unambiguous intent.
+ * - Derived: render every term with posts, minus `excludeTerms`.
+ *
+ * Terms are addressed by slug rather than ID so that curated lists stay
+ * readable and reviewable in pattern markup.
+ *
+ * @param array $attributes Taxonomy filter block attributes.
+ * @return \WP_Term[] Terms to render, in display order.
+ */
+function get_filter_terms( array $attributes ) : array {
+	$include = array_filter( (array) ( $attributes['includeTerms'] ?? [] ) );
+	$exclude = array_filter( (array) ( $attributes['excludeTerms'] ?? [] ) );
+
+	// Non-ASCII slugs are stored URL-encoded but are authored raw. Query for both forms.
+	$include_slugs = ! empty( $include )
+		? array_values( array_unique( array_merge( $include, array_map( 'rawurlencode', $include ) ) ) )
+		: '';
+
+	$terms = get_terms( [
+		'taxonomy' => $attributes['taxonomy'],
+		'hide_empty' => empty( $include ),
+		'slug' => $include_slugs,
+		'number' => 100,
+	] );
+
+	if ( is_wp_error( $terms ) || empty( $terms ) ) {
+		return [];
+	}
+
+	if ( ! empty( $include ) ) {
+		// get_terms() ignores the order of a slug list, but a curated row is an
+		// editorial statement about prominence. Restore the authored order.
+		usort(
+			$terms,
+			fn ( $a, $b ) => array_search( urldecode( $a->slug ), $include, true ) <=> array_search( urldecode( $b->slug ), $include, true )
+		);
+
+		return $terms;
+	}
+
+	if ( ! empty( $exclude ) ) {
+		$terms = array_values( array_filter(
+			$terms,
+			fn ( $term ) => ! in_array( urldecode( $term->slug ), $exclude, true )
+		) );
+	}
+
+	return $terms;
+}
+
+/**
  * Filters the settings determined from the block type metadata.
  *
  * @param array $metadata Metadata provided for registering a block type.
