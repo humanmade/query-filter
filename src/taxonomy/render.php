@@ -48,11 +48,11 @@ $show_all_label = $attributes['showAllLabel'] ?: __( 'See all', 'query-filter' )
 /**
  * Return whether a term should be hidden behind the "show all" toggle.
  *
- * @param int      $index Position of the term in the rendered list.
- * @param \WP_Term $term  Term being rendered.
+ * @param int     $index Position of the term in the rendered list.
+ * @param WP_Term $term  Term being rendered.
  * @return bool True when the term belongs to the collapsed overflow.
  */
-$is_overflow_term = function ( int $index, \WP_Term $term ) use ( $has_overflow, $max_visible, $selected_terms ) : bool {
+$is_overflow_term = function ( int $index, WP_Term $term ) use ( $has_overflow, $max_visible, $selected_terms ) : bool {
 	if ( ! $has_overflow || $index < $max_visible ) {
 		return false;
 	}
@@ -63,10 +63,10 @@ $is_overflow_term = function ( int $index, \WP_Term $term ) use ( $has_overflow,
 /**
  * Build the URL that toggles a term on or off within the current selection.
  *
- * @param \WP_Term $term Term to toggle.
+ * @param WP_Term $term Term to toggle.
  * @return string URL representing the selection with this term flipped.
  */
-$toggle_url = function ( \WP_Term $term ) use ( $selected_terms, $query_var, $page_var, $base_url ) : string {
+$toggle_url = function ( WP_Term $term ) use ( $selected_terms, $query_var, $page_var, $base_url ) : string {
 	$slug = urldecode( $term->slug );
 	$next = in_array( $slug, $selected_terms, true )
 		? array_diff( $selected_terms, [ $slug ] )
