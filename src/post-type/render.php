@@ -40,7 +40,10 @@ if ( $block->context['query']['inherit'] ) {
 	}
 }
 
-$post_types = array_unique( $post_types );
+// Only offer post types that are publicly queryable. The block context is
+// authored, but a private post type named there would render a filter the
+// server discards, and an unregistered one has no object to read a label from.
+$post_types = array_filter( array_unique( $post_types ), 'is_post_type_viewable' );
 $post_types = array_map( 'get_post_type_object', $post_types );
 
 if ( empty( $post_types ) ) {
