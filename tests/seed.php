@@ -35,6 +35,21 @@ function seed_post( string $title, string $type = 'post', array $extra = [] ) : 
 	], $extra ) );
 }
 
+// WordPress ships with a "Hello world!" post and a sample page. Remove all
+// pre-existing content so the fixtures below are the only thing the loops can
+// return, and so the default Uncategorized category stays empty and therefore
+// out of the taxonomy filter's derived term list.
+$existing = get_posts( [
+	'post_type' => [ 'post', 'page' ],
+	'post_status' => 'any',
+	'numberposts' => -1,
+	'fields' => 'ids',
+] );
+
+foreach ( $existing as $existing_id ) {
+	wp_delete_post( $existing_id, true );
+}
+
 // Categories. "Unfiled Post" deliberately belongs to neither, so an active
 // filter is distinguishable from no filter at all.
 wp_insert_term( 'Alpha', 'category', [ 'slug' => 'alpha' ] );
