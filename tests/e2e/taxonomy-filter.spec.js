@@ -77,10 +77,12 @@ test.describe( 'Taxonomy filter', () => {
 		const group = page.locator(
 			'.wp-block-query-filter-taxonomy__checkbox-group'
 		);
-		await expect( group.locator( 'label' ) ).toHaveText( [
-			'Alpha',
-			'Beta',
-		] );
+		// useInnerText, because the label markup wraps its text across lines
+		// and toHaveText compares textContent verbatim.
+		await expect( group.locator( 'label' ) ).toHaveText(
+			[ 'Alpha', 'Beta' ],
+			{ useInnerText: true }
+		);
 
 		await group
 			.locator( 'label', { hasText: 'Alpha' } )

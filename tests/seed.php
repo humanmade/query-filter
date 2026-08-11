@@ -58,11 +58,16 @@ wp_insert_term( 'Beta', 'category', [ 'slug' => 'beta' ] );
 $alpha_one = seed_post( 'Alpha One' );
 $alpha_two = seed_post( 'Alpha Two' );
 $beta_one = seed_post( 'Beta One' );
-seed_post( 'Unfiled Post' );
+$unfiled = seed_post( 'Unfiled Post' );
 
 wp_set_object_terms( $alpha_one, [ 'alpha' ], 'category' );
 wp_set_object_terms( $alpha_two, [ 'alpha' ], 'category' );
 wp_set_object_terms( $beta_one, [ 'beta' ], 'category' );
+
+// wp_insert_post() assigns the default category when a post is created without
+// one. The point of this post is to belong to no category, and clearing it also
+// leaves Uncategorized empty so it stays out of the filter's derived term list.
+wp_set_object_terms( $unfiled, [], 'category' );
 
 // Private taxonomy term on a post that is otherwise public, so a query string
 // filter naming it would visibly narrow the results if it were honoured.
