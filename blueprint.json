@@ -1,0 +1,71 @@
+{
+	"$schema": "https://playground.wordpress.net/blueprint-schema.json",
+	"landingPage": "/taxonomy-filter/",
+	"preferredVersions": {
+		"php": "8.2",
+		"wp": "6.8"
+	},
+	"features": {
+		"networking": true
+	},
+	"extraLibraries": [ "wp-cli" ],
+	"steps": [
+		{
+			"step": "login"
+		},
+		{
+			"step": "installTheme",
+			"themeData": {
+				"resource": "wordpress.org/themes",
+				"slug": "twentytwentyfive"
+			},
+			"options": {
+				"activate": true
+			}
+		},
+		{
+			"step": "installPlugin",
+			"pluginData": {
+				"resource": "wordpress.org/plugins",
+				"slug": "advanced-query-loop"
+			},
+			"options": {
+				"activate": true
+			}
+		},
+		{
+			"step": "defineWpConfigConsts",
+			"consts": {
+				"WP_DEBUG": true,
+				"WP_DEBUG_LOG": true,
+				"WP_DEBUG_DISPLAY": false,
+				"SCRIPT_DEBUG": true
+			}
+		},
+		{
+			"step": "wp-cli",
+			"command": "wp plugin activate query-filter"
+		},
+		{
+			"step": "mkdir",
+			"path": "/wordpress/wp-content/mu-plugins"
+		},
+		{
+			"step": "cp",
+			"fromPath": "/wordpress/wp-content/plugins/query-filter/tests/mu-plugins/register-test-content.php",
+			"toPath": "/wordpress/wp-content/mu-plugins/register-test-content.php"
+		},
+		{
+			"step": "runPHP",
+			"code": "<?php require '/wordpress/wp-load.php'; require '/wordpress/wp-content/plugins/query-filter/tests/seed.php';"
+		},
+		{
+			"step": "wp-cli",
+			"command": "wp rewrite structure '/%postname%/'"
+		},
+		{
+			"step": "wp-cli",
+			"command": "wp rewrite flush"
+		}
+	]
+}

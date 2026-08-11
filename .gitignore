@@ -2,3 +2,9 @@ node_modules
 
 /build/
 /vendor/
+
+# Playwright / Playground test artefacts
+/.auth/
+/dist/
+/playwright-report/
+/test-results/
