@@ -8,11 +8,18 @@ if ( empty( $attributes['taxonomy'] ) ) {
 	return;
 }
 
+$taxonomy = get_taxonomy( $attributes['taxonomy'] );
+
+// The saved taxonomy may since have been unregistered or made private. The
+// query string filter is discarded server side in either case, so rendering
+// the control would only offer a filter that silently does nothing.
+if ( ! $taxonomy || ! is_taxonomy_viewable( $taxonomy ) ) {
+	return;
+}
+
 $id = 'query-filter-' . wp_generate_uuid4();
 $display_type = $attributes['displayType'] ?? 'select';
 $layout_direction = $attributes['layoutDirection'] ?? 'vertical';
-
-$taxonomy = get_taxonomy( $attributes['taxonomy'] );
 
 if ( empty( $block->context['query']['inherit'] ) ) {
 	$query_id = $block->context['queryId'] ?? 0;
