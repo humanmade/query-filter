@@ -1,0 +1,108 @@
+name: Release
+
+# Builds the plugin, stamps the version into the source, then creates an
+# immutable tag that already points at the built, versioned code.
+#
+# The tag is created exactly once and is never moved or force-pushed, so
+# Packagist (which requires tags to be immutable) accepts it without conflict.
+#
+# Trigger this manually from the Actions tab and supply the version to cut.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release, without a leading "v" (e.g. 1.2.3)'
+        required: true
+        type: string
+
+concurrency:
+  group: release-${{ github.event.inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build, tag and publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Validate version input
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          if ! printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+              echo "::error::Version must be in X.Y.Z format without a leading 'v'. Got: '$VERSION'"
+              exit 1
+          fi
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "TAG=v$VERSION" >> "$GITHUB_ENV"
+
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Ensure the tag does not already exist
+        run: |
+          if git ls-remote --tags origin | grep -q "refs/tags/${TAG}$"; then
+              echo "::error::Tag ${TAG} already exists. Tags are immutable — bump the version and try again."
+              exit 1
+          fi
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install dependencies and build
+        run: |
+          npm ci
+          npm run build
+
+      - name: Stamp version into the plugin
+        run: |
+          sed -i "s/__VERSION__/${VERSION}/g" query-filter.php
+          echo "Stamped plugin header:"
+          grep -n "Version:" query-filter.php
+
+      - name: Create the immutable release commit and tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # build/ is gitignored in source; force-add the compiled assets
+          # so the tagged tree is self-contained and ready to install.
+          git add -f build
+          git add query-filter.php
+          git commit -m "Release ${TAG}"
+
+          git tag -a "${TAG}" -m "Release ${TAG}"
+
+          # Push ONLY the tag (and the objects it reaches). It is created
+          # once and never force-pushed, satisfying Packagist's immutability.
+          git push origin "refs/tags/${TAG}"
+
+      - name: Build distribution ZIP
+        run: |
+          mkdir -p dist
+          # git archive honours the export-ignore rules in .gitattributes,
+          # so the ZIP contents are defined in exactly one place and are
+          # guaranteed to match the tagged tree (build/ included).
+          git archive --format=zip \
+              --prefix=query-filter/ \
+              -o "dist/query-filter-${TAG}.zip" \
+              "${TAG}"
+          echo "Created dist/query-filter-${TAG}.zip"
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@fe965f7af51af5f2602596916f38a38df2e33de0 # v3.0.2
+        with:
+          tag_name: ${{ env.TAG }}
+          name: ${{ env.TAG }}
+          generate_release_notes: true
+          files: dist/query-filter-${{ env.TAG }}.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
