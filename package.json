@@ -15,11 +15,19 @@
 		"lint:css": "wp-scripts lint-style --fix",
 		"lint:js": "wp-scripts lint-js",
 		"lint:php": "composer phpcs",
-		"test": "echo \"Error: no test specified\" && exit 1"
+		"playground:start": "npx @wp-playground/cli server --blueprint=blueprint.json --auto-mount",
+		"test:e2e": "playwright test",
+		"test:e2e:debug": "playwright test --debug",
+		"test:e2e:watch": "playwright test --ui"
 	},
 	"author": "Human Made Limited",
 	"license": "GPL-2.0-or-later",
 	"dependencies": {
 		"@wordpress/scripts": "^28.6.0"
+	},
+	"devDependencies": {
+		"@playwright/test": "^1.58.0",
+		"@types/node": "^24.10.1",
+		"@wp-playground/cli": "^1.0.0"
 	}
 }

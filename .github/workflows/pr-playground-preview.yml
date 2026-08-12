@@ -1,0 +1,136 @@
+name: PR Playground Preview
+
+# Builds the PR's assets, pushes them to a throwaway `pr-<n>-built` branch, and
+# adds a "Preview in WordPress Playground" button to the PR description that
+# boots a WordPress instance with that build installed and demo content seeded.
+#
+# `build/` is gitignored, so the preview needs a branch that carries the
+# compiled assets — Playground installs the plugin from that branch's zip.
+# `pr-cleanup.yml` deletes the branch when the PR closes.
+
+on:
+  pull_request:
+    types: [ opened, synchronize, reopened, edited ]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-preview:
+    name: Build and publish preview
+    runs-on: ubuntu-latest
+    # Fork PRs get a read-only token, so the branch push would fail. Skip
+    # rather than failing the check.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Label the build with the PR number
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          # PR_NUMBER is numeric, so this is safe to interpolate. Never
+          # interpolate the PR title — it is attacker controlled.
+          sed -i "s|^ \* Version:.*| * Version:           0.0.0-pr${PR_NUMBER}|" query-filter.php
+          grep -n "Version:" query-filter.php
+
+      - name: Build plugin
+        run: npm run build
+
+      - name: Push built files to a preview branch
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+
+          BRANCH_NAME="pr-${PR_NUMBER}-built"
+          git checkout -B "$BRANCH_NAME"
+
+          # build/ is gitignored in source; force-add it so the branch zip is
+          # a self-contained, installable plugin.
+          git add -f build
+          git add -A
+
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Build assets for PR #${PR_NUMBER} (commit: ${HEAD_SHA})"
+            git push origin "$BRANCH_NAME" --force
+          fi
+
+      - name: Add the Playground preview button to the PR
+        uses: WordPress/action-wp-playground-pr-preview@43fc435558bc6cee69f5b214d6b8ca4f9f80c31d # v3
+        with:
+          mode: 'append-to-description'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          blueprint: |
+            {
+              "landingPage": "/query-filter-demo/",
+              "preferredVersions": {
+                "php": "8.2",
+                "wp": "6.8"
+              },
+              "features": { "networking": true },
+              "extraLibraries": [ "wp-cli" ],
+              "steps": [
+                {
+                  "step": "login",
+                  "username": "admin",
+                  "password": "password"
+                },
+                {
+                  "step": "installTheme",
+                  "themeData": {
+                    "resource": "wordpress.org/themes",
+                    "slug": "twentytwentyfive"
+                  },
+                  "options": { "activate": true }
+                },
+                {
+                  "step": "installPlugin",
+                  "pluginData": {
+                    "resource": "wordpress.org/plugins",
+                    "slug": "advanced-query-loop"
+                  },
+                  "options": { "activate": true }
+                },
+                {
+                  "step": "installPlugin",
+                  "pluginData": {
+                    "resource": "url",
+                    "url": "https://github.com/${{ github.repository }}/archive/refs/heads/pr-${{ github.event.pull_request.number }}-built.zip"
+                  },
+                  "options": { "activate": true }
+                },
+                {
+                  "step": "runPHP",
+                  "code": "<?php require '/wordpress/wp-load.php'; foreach ( [ 'Alpha' => 'alpha', 'Beta' => 'beta', 'Gamma' => 'gamma' ] as $name => $slug ) { wp_insert_term( $name, 'category', [ 'slug' => $slug ] ); } $i = 0; foreach ( [ 'alpha', 'alpha', 'beta', 'beta', 'gamma', '' ] as $slug ) { $i++; $id = wp_insert_post( [ 'post_title' => 'Demo Post ' . $i, 'post_name' => 'demo-post-' . $i, 'post_status' => 'publish', 'post_type' => 'post', 'post_author' => 1, 'post_content' => 'Demo content for post ' . $i . '.' ] ); if ( $slug ) { wp_set_object_terms( $id, [ $slug ], 'category' ); } } wp_insert_post( [ 'post_title' => 'Query Filter Demo', 'post_name' => 'query-filter-demo', 'post_status' => 'publish', 'post_type' => 'page', 'post_author' => 1, 'post_content' => '<!-- wp:query {\"queryId\":1,\"query\":{\"perPage\":10,\"pages\":0,\"offset\":0,\"postType\":\"post\",\"order\":\"asc\",\"orderBy\":\"title\",\"author\":\"\",\"search\":\"\",\"exclude\":[],\"sticky\":\"\",\"inherit\":false}} --><div class=\"wp-block-query\"><!-- wp:query-filter/taxonomy {\"taxonomy\":\"category\"} /--><!-- wp:query-filter/post-type /--><!-- wp:search {\"buttonText\":\"Search\"} /--><!-- wp:post-template --><!-- wp:post-title {\"isLink\":true} /--><!-- /wp:post-template --></div><!-- /wp:query -->' ] ); echo 'Seeded demo content.';"
+                },
+                {
+                  "step": "wp-cli",
+                  "command": "wp rewrite structure '/%postname%/'"
+                },
+                {
+                  "step": "wp-cli",
+                  "command": "wp rewrite flush"
+                }
+              ]
+            }

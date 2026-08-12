@@ -53,6 +53,27 @@ Command | Purpose
 
 <sup>&ddagger;</sup> This command deliberately filters out GET/OPTIONS/HEAD/POST/PUT access log entries
 
+## Testing
+
+End-to-end tests run against [WordPress Playground](https://wordpress.org/playground/), which boots in process — there is no environment to start or stop:
+
+```bash
+npm ci
+npm run build   # tests run against build/, not src/
+npm run test:e2e
+```
+
+Command | Purpose
+---- | ----
+`npm run test:e2e` | Run the Playwright suite
+`npm run test:e2e:debug` | Step through tests in the Playwright inspector
+`npm run test:e2e:watch` | Open the Playwright UI, rerunning on change
+`npm run playground:start` | Boot the same environment for manual testing, without running tests
+
+The environment is described by [blueprint.json](./blueprint.json) and is shared between the test run and manual use. See [tests/e2e/README.md](./tests/e2e/README.md) for the fixture content and how to write tests.
+
+Every pull request also gets a **Preview in WordPress Playground** button added to its description, which boots that PR's build with demo content already in place — no local checkout needed to try a change.
+
 ## Release Process
 
 Releases are cut by a manually-dispatched ["Release" GH Actions workflow](https://github.com/humanmade/query-filter/actions/workflows/release.yml), which builds the plugin, stamps the version into `query-filter.php`, and creates an immutable `vX.Y.Z` tag pointing at the built, versioned code. That tag is published to [Packagist](https://packagist.org/packages/humanmade/query-filter) and attached to a GitHub release as a downloadable ZIP.

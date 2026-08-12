@@ -13,7 +13,11 @@
 /.gitattributes export-ignore
 /.phpcs.xml export-ignore
 /.wp-env.json export-ignore
+/blueprint.json export-ignore
 /composer.lock export-ignore
+/global-setup.js export-ignore
+/global-teardown.js export-ignore
+/playwright.config.js export-ignore
 /package.json export-ignore
 /package-lock.json export-ignore
 /CONTRIBUTING.md export-ignore

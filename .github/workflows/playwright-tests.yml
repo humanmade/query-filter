@@ -1,0 +1,83 @@
+name: Playwright Tests
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - ready_for_review
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Test PHP ${{ matrix.php }} / WP ${{ matrix.wordpress }}
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        php: [ '8.2', '8.3' ]
+        wordpress: [ '6.8', 'latest' ]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Tests run against the built assets, not src/.
+      - name: Build plugin
+        run: npm run build
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Playwright tests
+        id: tests
+        continue-on-error: true
+        run: npm run test:e2e
+        env:
+          CI: true
+          WP_PLAYGROUND_PHP: ${{ matrix.php }}
+          WP_PLAYGROUND_WP: ${{ matrix.wordpress }}
+          WP_PLAYGROUND_PORT: 9400
+
+      - name: Upload test results
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: playwright-report-php${{ matrix.php }}-wp${{ matrix.wordpress }}
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Comment PR with test results
+        uses: daun/playwright-report-comment@31ed947ec7a623d18a66cfd20ef546dc66ef8063 # v4.1.0
+        if: always() && github.event_name == 'pull_request'
+        with:
+          report-file: test-results/results.json
+          comment-title: 'Playwright — PHP ${{ matrix.php }} / WP ${{ matrix.wordpress }}'
+
+      - name: Fail if tests failed
+        if: steps.tests.outcome == 'failure'
+        run: exit 1
