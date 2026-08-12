@@ -2,14 +2,12 @@
 
 ## Building assets
 
-Run `npm run build` to build production assets, or `npm run start` whilst actively working on the plugin.,
+Run `npm run build` to build production assets, or `npm run start` whilst actively working on the plugin.
 
-There is currently no automated process to build assets when releasing, so please commit updated build files as part of any pull request. This is something we can revisit later if it becomes an issue.
+Built assets are gitignored and must not be committed. They are built by CI: merges to `main` build to the `release` branch, and the release workflow builds them fresh when cutting a tag.
 
 ## Releasing a new version
 
-[Releases are managed using Github.](https://github.com/humanmade/query-filter/releases).
+Releases are cut by the manually-dispatched ["Release" GH Actions workflow](https://github.com/humanmade/query-filter/actions/workflows/release.yml): run it with the target version number (without a leading `v`) and it builds, stamps the version, tags, and publishes the GitHub release and Packagist version for you.
 
-Create a new release setting the tag to the desired version number (Follow semver for major/minor releases). Target should be main and release notes can be auto-generated. Use the version number as the release title.
-
-Once a release is created, it will be published automatically on Packagist.
+See [RELEASE.md](./RELEASE.md) for the full process.
