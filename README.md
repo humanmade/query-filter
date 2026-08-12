@@ -76,20 +76,17 @@ Every pull request also gets a **Preview in WordPress Playground** button added 
 
 ## Release Process
 
-Merges to `main` automatically [build](https://github.com/humanmade/query-filter/actions/workflows/build-release-branch.yml) to the `release` branch. A project may track the `release` branch using [Composer](https://getcomposer.org/) to pull in the latest built beta version.
+Releases are cut by a manually-dispatched ["Release" GH Actions workflow](https://github.com/humanmade/query-filter/actions/workflows/release.yml), which builds the plugin, stamps the version into `query-filter.php`, and creates an immutable `vX.Y.Z` tag pointing at the built, versioned code. That tag is published to [Packagist](https://packagist.org/packages/humanmade/query-filter) and attached to a GitHub release as a downloadable ZIP.
 
-Commits on the `release` branch may be tagged for installation via [Packagist](https://packagist.org/packages/humanmade/query-filter) and marked as releases in GitHub for manual download, using a manually-dispatched ["Tag and Release" GH Actions workflow](https://github.com/humanmade/query-filter/actions/workflows/tag-and-release.yml).
-
-To tag a new release:
+To cut a new release:
 
 1. Choose the target version number using [semantic versioning](https://semver.org/).
-2. Check out a `prepare-v#.#.#` branch and bump the `Version` in the [query-filter.php](./query-filter.php) PHPDoc header.
-3. Open a pull request titled "Prepare release v#.#.#".
-4. Review and merge the "Prepare release" pull request.
-5. Wait for the `release` branch to [update](https://github.com/humanmade/query-filter/actions/workflows/build-release-branch.yml) with the build that includes the new version number.
-6. On the ["Tag and Release" GH Action page](https://github.com/humanmade/query-filter/actions/workflows/tag-and-release.yml):
-   - Click "Run workflow" in the `workflow_dispatch` banner.
-   - Fill out the "Version tag" field with your target version number. This must match the `Version` in `query-filter.php`. Use the format `v#.#.#`.
-   - Click "Run workflow" to apply the specified tag to the `release` branch.
+2. On the ["Release" GH Action page](https://github.com/humanmade/query-filter/actions/workflows/release.yml), click "Run workflow".
+3. Fill out the "Version" field **without** a leading `v`, e.g. `1.2.3`.
+4. Click "Run workflow".
 
-Once the workflow completes, the new version is [tagged](https://github.com/humanmade/query-filter/tags) and listed in [releases](https://github.com/humanmade/query-filter/releases).
+There is no "prepare release" pull request — the version number is supplied to the workflow and never lives on `main`, where the `Version` header is always the literal placeholder `__VERSION__`.
+
+Separately, merges to `main` automatically [build](https://github.com/humanmade/query-filter/actions/workflows/build-release-branch.yml) to the `release` branch. A project may track the `release` branch using [Composer](https://getcomposer.org/) to pull in the latest built beta version. The `release` branch is not versioned and is not involved in cutting a tagged release.
+
+See [RELEASE.md](./RELEASE.md) for the full process, including what ships in the ZIP and how to cut a release by hand.
