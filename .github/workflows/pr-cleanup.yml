@@ -1,0 +1,33 @@
+name: PR Cleanup
+
+# Deletes the `pr-<n>-built` branch created by pr-playground-preview.yml once
+# the pull request is closed or merged.
+
+on:
+  pull_request:
+    types: [ closed ]
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    name: Delete the preview branch
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Delete PR preview branch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          BRANCH_NAME="pr-${PR_NUMBER}-built"
+          REMOTE="https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git"
+
+          if git ls-remote --heads "$REMOTE" "$BRANCH_NAME" | grep -q "$BRANCH_NAME"; then
+            echo "Deleting $BRANCH_NAME"
+            git push "$REMOTE" --delete "$BRANCH_NAME"
+          else
+            echo "Branch $BRANCH_NAME does not exist. Nothing to clean up."
+          fi
