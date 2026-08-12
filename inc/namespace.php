@@ -99,55 +99,85 @@ function pre_get_posts_transpose_query_vars( WP_Query $query ) : void {
 
 	// Map get params to this query.
 	foreach ( $_GET as $key => $value ) {
-		if ( strpos( $key, $prefix ) === 0 ) {
-			$key = str_replace( $prefix, '', $key );
-			$value = sanitize_text_field( urldecode( wp_unslash( $value ) ) );
+		if ( strpos( $key, $prefix ) !== 0 ) {
+			continue;
+		}
 
-			// Handle taxonomies specifically.
-			if ( get_taxonomy( $key ) ) {
-				// If multiple taxonomy filters are selected, ALL of them must match.
-				$tax_query['relation'] = 'AND';
+		$key = str_replace( $prefix, '', $key );
 
-				// Handle multiple values separated by commas (for checkbox mode)
-				$values = wp_parse_list( $value );
+		// Only scalar values are ever produced by the filter blocks. Array
+		// values (`?query-post_type[]=x`) would sanitize to an empty string.
+		if ( ! is_scalar( $value ) ) {
+			continue;
+		}
 
-				if ( count( $values ) > 1 ) {
-					// If multiple terms in a taxonomy are selected, posts with
-					// ANY of the selected terms should be returned.
-					$tax_query[] = [
-						'taxonomy' => $key,
-						'terms' => $values,
-						'field' => 'slug',
-						'operator' => 'IN',
-					];
-				} else {
-					// Single value: normal behavior
-					$tax_query[] = [
-						'taxonomy' => $key,
-						'terms' => $values,
-						'field' => 'slug',
-					];
-				}
+		$value = sanitize_text_field( urldecode( wp_unslash( $value ) ) );
+
+		// Handle taxonomies specifically.
+		if ( taxonomy_exists( $key ) ) {
+			// A visitor can name any registered taxonomy here, including ones
+			// registered privately for internal bookkeeping. Filtering by those
+			// turns the front end into an oracle for private groupings, so only
+			// honour taxonomies that are publicly queryable in the first place.
+			if ( ! is_taxonomy_viewable( $key ) ) {
+				continue;
+			}
+
+			// If multiple taxonomy filters are selected, ALL of them must match.
+			$tax_query['relation'] = 'AND';
+
+			// Handle multiple values separated by commas (for checkbox mode)
+			$values = wp_parse_list( $value );
+
+			if ( count( $values ) > 1 ) {
+				// If multiple terms in a taxonomy are selected, posts with
+				// ANY of the selected terms should be returned.
+				$tax_query[] = [
+					'taxonomy' => $key,
+					'terms' => $values,
+					'field' => 'slug',
+					'operator' => 'IN',
+				];
 			} else {
-				// Other options should map directly to query vars.
-				$key = sanitize_key( $key );
+				// Single value: normal behavior
+				$tax_query[] = [
+					'taxonomy' => $key,
+					'terms' => $values,
+					'field' => 'slug',
+				];
+			}
 
-				if ( ! in_array( $key, array_keys( $valid_keys ), true ) ) {
-					continue;
-				}
+			continue;
+		}
 
-				// post_type accepts multiple comma-separated values in checkbox mode.
-				// Parse as list so WP_Query returns results from any selected post_type.
-				if ( $key === 'post_type' ) {
-					$value = wp_parse_list( $value );
-				}
+		// Other options should map directly to query vars.
+		$key = sanitize_key( $key );
 
-				$query->set(
-					$key,
-					$value
-				);
+		if ( ! in_array( $key, array_keys( $valid_keys ), true ) ) {
+			continue;
+		}
+
+		// post_type accepts multiple comma-separated values in checkbox mode.
+		// Parse as list so WP_Query returns results from any selected post_type.
+		if ( $key === 'post_type' ) {
+			// Same reasoning as taxonomies, with sharper teeth: an unfiltered
+			// post_type lets a visitor swap the loop onto any registered post
+			// type, including private ones holding unpublished editorial or
+			// plugin data, and read their titles and excerpts straight out of
+			// the loop. Keep only post types that are publicly queryable.
+			$value = array_values( array_filter( wp_parse_list( $value ), 'is_post_type_viewable' ) );
+
+			// Everything requested was unknown or non-public. Leave the query's
+			// own post type in place rather than setting an empty one.
+			if ( empty( $value ) ) {
+				continue;
 			}
 		}
+
+		$query->set(
+			$key,
+			$value
+		);
 	}
 
 	if ( ! empty( $tax_query ) ) {
