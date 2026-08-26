@@ -84,7 +84,7 @@
 	},
 	"textdomain": "query-filter",
 	"editorScript": "file:./index.js",
-	"style": "query-filter-view",
+	"style": "file:./index.css",
 	"viewScriptModule": "file:./view.js",
 	"render": "file:./render.php"
 }
