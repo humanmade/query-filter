@@ -20,8 +20,8 @@ function bootstrap() : void {
 	add_filter( 'query_loop_block_query_vars', __NAMESPACE__ . '\\filter_query_loop_block_query_vars', 10, 3 );
 	add_action( 'pre_get_posts', __NAMESPACE__ . '\\pre_get_posts_transpose_query_vars' );
 	add_filter( 'block_type_metadata', __NAMESPACE__ . '\\filter_block_type_metadata', 10 );
+	add_action( 'init', __NAMESPACE__ . '\\register_view_style', 9 );
 	add_action( 'init', __NAMESPACE__ . '\\register_blocks' );
-	add_action( 'enqueue_block_assets', __NAMESPACE__ . '\\action_wp_enqueue_scripts' );
 
 	// Search.
 	add_filter( 'render_block_core/search', __NAMESPACE__ . '\\render_block_search', 10, 3 );
@@ -31,18 +31,39 @@ function bootstrap() : void {
 }
 
 /**
- * Fires when scripts and styles are enqueued.
+ * Register the stylesheet shared by both filter blocks.
  *
- * @TODO work out why this doesn't work but building interactivity via the blocks does.
+ * Both blocks name the `query-filter-view` handle in their `style` field rather
+ * than a `file:` path, so one stylesheet covers both instead of shipping a copy
+ * per block. That means registering the handle ourselves, and doing it on `init`
+ * so it exists before either block is registered against it.
+ *
+ * The file is emitted by wp-scripts, which splits any `style.css` out of its
+ * entry point into `<entry-dir>/style-<entry-name>.css`, alongside a flipped
+ * `-rtl` variant.
+ *
+ * @return void
  */
-function action_wp_enqueue_scripts() : void {
-	$asset = include ROOT_DIR . '/build/taxonomy/index.asset.php';
+function register_view_style() : void {
+	$relative_path = '/build/taxonomy/style-index.css';
+	$path = ROOT_DIR . $relative_path;
+
+	// A source checkout that has not been built has no stylesheet to register.
+	// Leave the handle unregistered rather than pointing it at a 404.
+	if ( ! file_exists( $path ) ) {
+		return;
+	}
+
+	// The entry's `index.asset.php` version only tracks its JavaScript, so a
+	// CSS-only change would not bust it. Version by the built file itself.
 	wp_register_style(
 		'query-filter-view',
-		plugins_url( '/build/taxonomy/index.css', PLUGIN_FILE ),
+		plugins_url( $relative_path, PLUGIN_FILE ),
 		[],
-		$asset['version']
+		(string) filemtime( $path )
 	);
+
+	wp_style_add_data( 'query-filter-view', 'rtl', 'replace' );
 }
 
 /**
