@@ -21,28 +21,12 @@ function bootstrap() : void {
 	add_action( 'pre_get_posts', __NAMESPACE__ . '\\pre_get_posts_transpose_query_vars' );
 	add_filter( 'block_type_metadata', __NAMESPACE__ . '\\filter_block_type_metadata', 10 );
 	add_action( 'init', __NAMESPACE__ . '\\register_blocks' );
-	add_action( 'enqueue_block_assets', __NAMESPACE__ . '\\action_wp_enqueue_scripts' );
 
 	// Search.
 	add_filter( 'render_block_core/search', __NAMESPACE__ . '\\render_block_search', 10, 3 );
 
 	// Query.
 	add_filter( 'render_block_core/query', __NAMESPACE__ . '\\render_block_query', 10, 3 );
-}
-
-/**
- * Fires when scripts and styles are enqueued.
- *
- * @TODO work out why this doesn't work but building interactivity via the blocks does.
- */
-function action_wp_enqueue_scripts() : void {
-	$asset = include ROOT_DIR . '/build/taxonomy/index.asset.php';
-	wp_register_style(
-		'query-filter-view',
-		plugins_url( '/build/taxonomy/index.css', PLUGIN_FILE ),
-		[],
-		$asset['version']
-	);
 }
 
 /**
