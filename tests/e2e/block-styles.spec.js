@@ -2,39 +2,50 @@ const { test, expect } = require( './fixtures' );
 
 /**
  * Each block's `style` field points at the stylesheet its entry point emits, so
- * WordPress registers, versions and enqueues it from block.json. Nothing in the
- * build fails when that file is missing — the page just renders unstyled and
- * requests a 404 — so assert both that the request succeeds and that the rules
- * reach the block.
+ * WordPress registers and enqueues it from block.json. Nothing in the build
+ * fails when that file is missing — the page just renders unstyled and 404s on
+ * the request — so assert both that nothing 404s and that the rules reach the
+ * block.
  */
 test.describe( 'Block styles', () => {
-	test( 'the stylesheet is enqueued and loads', async ( { page } ) => {
-		const responses = [];
+	test( 'the stylesheet reaches the page without a 404', async ( {
+		page,
+	} ) => {
+		const failed = [];
 
 		page.on( 'response', ( response ) => {
-			if ( response.url().includes( 'query-filter' ) ) {
-				responses.push( response );
+			if (
+				response.url().includes( '/build/' ) &&
+				response.status() >= 400
+			) {
+				failed.push( `${ response.status() } ${ response.url() }` );
 			}
 		} );
 
 		await page.goto( '/taxonomy-filter/' );
+		await expect(
+			page.locator( '.wp-block-query-filter' ).first()
+		).toBeVisible();
 
-		const link = page.locator(
-			'link[rel="stylesheet"][href*="query-filter"][href*="index.css"]'
-		);
-		await expect( link ).toHaveCount( 1 );
+		// Issue #53 itself: the block asked for a stylesheet the build never
+		// produced, and the request 404'd.
+		expect( failed ).toEqual( [] );
 
-		// A version query string keeps a changed stylesheet from being served
-		// from cache.
-		expect( await link.getAttribute( 'href' ) ).toMatch(
-			/index\.css\?ver=.+/
+		// WordPress inlines a block stylesheet below `styles_inline_size_limit`
+		// and links it above, so assert on the rules landing in the CSSOM rather
+		// than on which of the two it picked.
+		const hasRules = await page.evaluate( () =>
+			Array.from( document.styleSheets ).some( ( sheet ) => {
+				try {
+					return Array.from( sheet.cssRules ).some( ( rule ) =>
+						rule.selectorText?.includes( '.wp-block-query-filter' )
+					);
+				} catch {
+					return false;
+				}
+			} )
 		);
-
-		const stylesheet = responses.find( ( response ) =>
-			response.url().includes( 'index.css' )
-		);
-		expect( stylesheet, 'stylesheet was requested' ).toBeTruthy();
-		expect( stylesheet.status() ).toBe( 200 );
+		expect( hasRules, 'block rules are present in the CSSOM' ).toBe( true );
 	} );
 
 	test( 'the stylesheet applies to the rendered block', async ( {
