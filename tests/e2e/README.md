@@ -78,6 +78,11 @@ test( 'filters the loop', async ( { page, loop } ) => {
 } );
 ```
 
+Editor specs open a fixture page in the block editor and watch the console,
+so a React warning from a block's `edit` is a test failure rather than
+something only a person looking at the console would notice. They rely on the
+authentication state `global-setup.js` saves.
+
 Filtering navigates through the Interactivity API router, which swaps the loop
 region in without a document navigation. Use `loop.expectTitles()`, which polls
 the rendered titles, rather than waiting on a load event.
