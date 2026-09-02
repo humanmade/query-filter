@@ -146,6 +146,24 @@ seed_post( 'Post Type Filter', 'page', [
 	),
 ] );
 
+// Page 4: a query loop whose `query` context omits `inherit` altogether, as
+// hand written pattern markup and third party query blocks do. The filters
+// must render without warning about the missing key.
+seed_post( 'No Inherit Context', 'page', [
+	'post_name' => 'no-inherit-context',
+	'post_content' => <<<HTML
+<!-- wp:query {"queryId":4,"query":{"perPage":10,"postType":"post","order":"asc","orderBy":"title"}} -->
+<div class="wp-block-query">
+<!-- wp:query-filter/post-type /-->
+<!-- wp:query-filter/taxonomy {"taxonomy":"category"} /-->
+<!-- wp:post-template -->
+<!-- wp:post-title /-->
+<!-- /wp:post-template -->
+</div>
+<!-- /wp:query -->
+HTML,
+] );
+
 // Page 5: a paginated loop with a search block, two posts to a page, so a
 // search can be started from a page the results do not reach.
 seed_post( 'Search Pagination', 'page', [

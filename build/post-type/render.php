@@ -10,7 +10,13 @@ $id = 'query-filter-' . wp_generate_uuid4();
 $display_type = $attributes['displayType'] ?? 'select';
 $layout_direction = $attributes['layoutDirection'] ?? 'vertical';
 
-if ( $block->context['query']['inherit'] ) {
+// The query block's own attribute default carries `inherit`, but markup that
+// names a `query` object without it (hand written patterns, third party query
+// blocks) reaches render with the key absent. Read it as "not inherited"
+// rather than warning about an undefined index.
+$inherit = ! empty( $block->context['query']['inherit'] );
+
+if ( $inherit ) {
 	$query_var = 'query-post_type';
 	$page_var = 'page';
 	$base_url = str_replace( '/page/' . get_query_var( 'paged' ), '', remove_query_arg( [ $query_var, $page_var ] ) );
@@ -29,7 +35,7 @@ if ( isset( $block->context['query']['multiple_posts'] ) && is_array( $block->co
 }
 
 // Fill in inherited query types.
-if ( $block->context['query']['inherit'] ) {
+if ( $inherit ) {
 	$inherited_post_types = $wp_query->get( 'query-filter-post_type' ) === 'any'
 		? get_post_types( [ 'public' => true, 'exclude_from_search' => false ] )
 		: (array) $wp_query->get( 'query-filter-post_type' );
