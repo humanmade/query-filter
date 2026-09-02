@@ -31,7 +31,9 @@ run and `npm run playground:start`:
 3. Activates this plugin, mounted from the working tree.
 4. Copies `tests/mu-plugins/register-test-content.php` into `mu-plugins`, which
    registers the post types and taxonomies the tests filter against — including
-   deliberately private ones.
+   deliberately private ones. It also rewrites the theme's search results
+   template to put a search block inside the inheriting query loop, the one
+   arrangement in which the blocks see an inherited query.
 5. Runs `tests/seed.php`, which creates the fixture terms, posts and the demo
    pages the specs visit.
 
