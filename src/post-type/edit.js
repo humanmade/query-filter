@@ -143,7 +143,7 @@ export default function Edit( { attributes, setAttributes, context } ) {
 				{ displayType === 'select' && (
 					<select
 						className="wp-block-query-filter-post-type__select wp-block-query-filter__select"
-						inert
+						inert="true"
 					>
 						<option>
 							{ emptyLabel || __( 'All', 'query-filter' ) }
@@ -166,7 +166,7 @@ export default function Edit( { attributes, setAttributes, context } ) {
 								type="radio"
 								name="post-type-preview"
 								defaultChecked
-								inert
+								inert="true"
 							/>
 							{ emptyLabel || __( 'All', 'query-filter' ) }
 						</label>
@@ -175,7 +175,7 @@ export default function Edit( { attributes, setAttributes, context } ) {
 								<input
 									type="radio"
 									name="post-type-preview"
-									inert
+									inert="true"
 								/>
 								{ type.name }
 							</label>
@@ -192,7 +192,7 @@ export default function Edit( { attributes, setAttributes, context } ) {
 					>
 						{ postTypes.map( ( type ) => (
 							<label key={ type.slug }>
-								<input type="checkbox" inert />
+								<input type="checkbox" inert="true" />
 								{ type.name }
 							</label>
 						) ) }
