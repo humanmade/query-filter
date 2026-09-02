@@ -34,7 +34,9 @@ run and `npm run playground:start`:
    deliberately private ones. It also records any PHP notice raised from this
    plugin's files and prints it into the page as a `qf-php-error:` comment,
    followed by a `qf-php-errors-checked` marker, so a spec can assert a page
-   rendered cleanly without depending on `display_errors`.
+   rendered cleanly without depending on `display_errors`, and rewrites the
+   theme's search results template to put a search block inside the inheriting
+   query loop, the one arrangement in which the blocks see an inherited query.
 5. Runs `tests/seed.php`, which creates the fixture terms, posts and the demo
    pages the specs visit.
 
