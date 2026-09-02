@@ -146,6 +146,24 @@ seed_post( 'Post Type Filter', 'page', [
 	),
 ] );
 
+// Page 4: a query loop whose `query` context omits `inherit` altogether, as
+// hand written pattern markup and third party query blocks do. The filters
+// must render without warning about the missing key.
+seed_post( 'No Inherit Context', 'page', [
+	'post_name' => 'no-inherit-context',
+	'post_content' => <<<HTML
+<!-- wp:query {"queryId":4,"query":{"perPage":10,"postType":"post","order":"asc","orderBy":"title"}} -->
+<div class="wp-block-query">
+<!-- wp:query-filter/post-type /-->
+<!-- wp:query-filter/taxonomy {"taxonomy":"category"} /-->
+<!-- wp:post-template -->
+<!-- wp:post-title /-->
+<!-- /wp:post-template -->
+</div>
+<!-- /wp:query -->
+HTML,
+] );
+
 update_option( 'query_filter_e2e_seeded', 1 );
 
 echo "Seeded query filter e2e fixtures.\n";

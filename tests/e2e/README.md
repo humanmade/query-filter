@@ -31,7 +31,10 @@ run and `npm run playground:start`:
 3. Activates this plugin, mounted from the working tree.
 4. Copies `tests/mu-plugins/register-test-content.php` into `mu-plugins`, which
    registers the post types and taxonomies the tests filter against — including
-   deliberately private ones.
+   deliberately private ones. It also records any PHP notice raised from this
+   plugin's files and prints it into the page as a `qf-php-error:` comment,
+   followed by a `qf-php-errors-checked` marker, so a spec can assert a page
+   rendered cleanly without depending on `display_errors`.
 5. Runs `tests/seed.php`, which creates the fixture terms, posts and the demo
    pages the specs visit.
 
@@ -44,6 +47,7 @@ Seeding is idempotent, guarded by the `query_filter_e2e_seeded` option.
 | `/taxonomy-filter/` | 1 | Taxonomy filter (select) |
 | `/taxonomy-checkboxes/` | 2 | Taxonomy filter (checkboxes) |
 | `/post-type-filter/` | 3 | Post type filter and core search block |
+| `/no-inherit-context/` | 4 | Both filters, in a query loop whose `query` context omits `inherit` |
 
 Posts: `Alpha One` and `Alpha Two` in the `alpha` category, `Beta One` in
 `beta`, and `Unfiled Post` in neither — so an active filter is always
