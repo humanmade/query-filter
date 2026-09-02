@@ -304,8 +304,14 @@ function render_block_search( string $block_content, array $block, \WP_Block $in
 
 	$inherit = ! empty( $instance->context['query']['inherit'] );
 
+	// An inherited query is the main query, and WordPress resolves that from
+	// its own `s`: a term only reaches the search template because `s` is what
+	// routing reads. Naming the field anything else leaves the field blank on
+	// arrival, and clearing it deletes a parameter the URL never carried, so
+	// the results never change. `query-s` is still transposed onto the main
+	// query for anything that already links to it.
 	$query_var = $inherit
-		? 'query-s'
+		? 's'
 		: sprintf( 'query-%d-s', $instance->context['queryId'] ?? 0 );
 
 	// A search is a new set of results, so it belongs on the first page. Left
