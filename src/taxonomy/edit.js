@@ -264,7 +264,7 @@ export default function Edit( { attributes, setAttributes } ) {
 				{ displayType === 'select' && (
 					<select
 						className="wp-block-query-filter-taxonomy__select wp-block-query-filter__select"
-						inert
+						inert="true"
 					>
 						<option>
 							{ emptyLabel || __( 'All', 'query-filter' ) }
@@ -287,7 +287,7 @@ export default function Edit( { attributes, setAttributes } ) {
 								type="radio"
 								name="taxonomy-preview"
 								defaultChecked
-								inert
+								inert="true"
 							/>
 							{ emptyLabel || __( 'All', 'query-filter' ) }
 						</label>
@@ -296,7 +296,7 @@ export default function Edit( { attributes, setAttributes } ) {
 								<input
 									type="radio"
 									name="taxonomy-preview"
-									inert
+									inert="true"
 								/>
 								{ term.name }
 							</label>
@@ -313,7 +313,7 @@ export default function Edit( { attributes, setAttributes } ) {
 					>
 						{ previewTerms.map( ( term ) => (
 							<label key={ term.slug }>
-								<input type="checkbox" inert />
+								<input type="checkbox" inert="true" />
 								{ term.name }
 							</label>
 						) ) }
