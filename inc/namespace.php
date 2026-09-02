@@ -36,6 +36,7 @@ function bootstrap() : void {
 function register_blocks() : void {
 	register_block_type( ROOT_DIR . '/build/taxonomy' );
 	register_block_type( ROOT_DIR . '/build/post-type' );
+	register_block_type( ROOT_DIR . '/build/author' );
 }
 
 /**
@@ -67,8 +68,8 @@ function pre_get_posts_transpose_query_vars( WP_Query $query ) : void {
 	}
 
 	$prefix = $query->is_main_query() ? 'query-' : "query-{$query_id}-";
-	$tax_query = [];
 	$valid_keys = [
+		'author' => '',
 		'post_type' => $query->is_search() ? 'any' : 'post',
 		's' => '',
 	];
