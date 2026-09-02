@@ -302,11 +302,23 @@ function render_block_search( string $block_content, array $block, \WP_Block $in
 
 	wp_enqueue_script_module( 'query-filter-taxonomy-view-script-module' );
 
-	$query_var = empty( $instance->context['query']['inherit'] )
-		? sprintf( 'query-%d-s', $instance->context['queryId'] ?? 0 )
-		: 'query-s';
+	$inherit = ! empty( $instance->context['query']['inherit'] );
 
-	$action = str_replace( '/page/' . get_query_var( 'paged', 1 ), '', add_query_arg( [ $query_var => '' ] ) );
+	$query_var = $inherit
+		? 'query-s'
+		: sprintf( 'query-%d-s', $instance->context['queryId'] ?? 0 );
+
+	// A search is a new set of results, so it belongs on the first page. Left
+	// in place, the page the visitor happened to be on is carried into the
+	// search and a term with fewer pages of matches than that renders empty.
+	// Named as core names it, so the parameter the pagination block wrote is
+	// the one that gets dropped.
+	$page_var = $inherit
+		? 'page'
+		: ( isset( $instance->context['queryId'] ) ? 'query-' . $instance->context['queryId'] . '-page' : 'query-page' );
+
+	$action = remove_query_arg( $page_var, add_query_arg( [ $query_var => '' ] ) );
+	$action = str_replace( '/page/' . get_query_var( 'paged', 1 ), '', $action );
 
 	$search_value = sanitize_search_query_var( $query_var );
 

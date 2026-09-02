@@ -48,6 +48,7 @@ Seeding is idempotent, guarded by the `query_filter_e2e_seeded` option.
 | `/taxonomy-checkboxes/` | 2 | Taxonomy filter (checkboxes) |
 | `/post-type-filter/` | 3 | Post type filter and core search block |
 | `/no-inherit-context/` | 4 | Both filters, in a query loop whose `query` context omits `inherit` |
+| `/search-pagination/` | 5 | Core search block and pagination, two posts to a page |
 
 Posts: `Alpha One` and `Alpha Two` in the `alpha` category, `Beta One` in
 `beta`, and `Unfiled Post` in neither — so an active filter is always

@@ -32,4 +32,21 @@ test.describe( 'Search filter', () => {
 			'Beta'
 		);
 	} );
+
+	test( 'searching from a later page starts the results over', async ( {
+		page,
+		loop,
+	} ) => {
+		// Two posts to a page, so page 2 holds the posts a search for "Alpha"
+		// does not match. Carrying the page parameter into the search renders
+		// an empty loop over results that do exist.
+		await page.goto( '/search-pagination/?query-5-page=2' );
+		await loop.expectTitles( [ 'Beta One', 'Unfiled Post' ] );
+
+		await page.locator( '.wp-block-search__input' ).fill( 'Alpha' );
+
+		await page.waitForURL( /query-5-s=Alpha/ );
+		expect( page.url() ).not.toContain( 'query-5-page' );
+		await loop.expectTitles( POSTS.alpha );
+	} );
 } );

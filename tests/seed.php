@@ -164,6 +164,27 @@ seed_post( 'No Inherit Context', 'page', [
 HTML,
 ] );
 
+// Page 5: a paginated loop with a search block, two posts to a page, so a
+// search can be started from a page the results do not reach.
+seed_post( 'Search Pagination', 'page', [
+	'post_name' => 'search-pagination',
+	'post_content' => <<<HTML
+<!-- wp:query {"queryId":5,"query":{"perPage":2,"pages":0,"offset":0,"postType":"post","order":"asc","orderBy":"title","inherit":false}} -->
+<div class="wp-block-query">
+<!-- wp:search {"buttonText":"Search"} /-->
+<!-- wp:post-template -->
+<!-- wp:post-title /-->
+<!-- /wp:post-template -->
+<!-- wp:query-pagination -->
+<!-- wp:query-pagination-previous /-->
+<!-- wp:query-pagination-numbers /-->
+<!-- wp:query-pagination-next /-->
+<!-- /wp:query-pagination -->
+</div>
+<!-- /wp:query -->
+HTML,
+] );
+
 update_option( 'query_filter_e2e_seeded', 1 );
 
 echo "Seeded query filter e2e fixtures.\n";
