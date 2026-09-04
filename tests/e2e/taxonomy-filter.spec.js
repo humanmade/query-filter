@@ -19,6 +19,49 @@ test.describe( 'Taxonomy filter', () => {
 		await loop.expectTitles( POSTS.all );
 	} );
 
+	test( 'only lists terms assigned to the query loop post type', async ( {
+		page,
+		loop,
+	} ) => {
+		await page.goto( '/post-type-taxonomy-filter/' );
+
+		await expect( loop.taxonomySelect().locator( 'option' ) ).toHaveText( [
+			'All',
+			'Docs Only',
+		] );
+		await loop.expectTitles( POSTS.docs );
+
+		await loop.taxonomySelect().selectOption( { label: 'Docs Only' } );
+		await page.waitForURL( /query-7-qf_topic=docs-only/ );
+		await loop.expectTitles( [ 'Doc One' ] );
+	} );
+
+	test( 'follows the post type selected in the URL', async ( {
+		page,
+		loop,
+	} ) => {
+		await page.goto( '/post-type-taxonomy-filter/?query-7-post_type=post' );
+
+		await expect( loop.taxonomySelect().locator( 'option' ) ).toHaveText( [
+			'All',
+			'Posts Only',
+		] );
+		await loop.expectTitles( POSTS.all );
+	} );
+
+	test( 'keeps global taxonomy terms when post type filtering is disabled', async ( {
+		page,
+		loop,
+	} ) => {
+		await page.goto( '/global-taxonomy-filter/' );
+
+		await expect( loop.taxonomySelect().locator( 'option' ) ).toHaveText( [
+			'All',
+			'Docs Only',
+			'Posts Only',
+		] );
+	} );
+
 	test( 'selecting a term filters the loop and updates the URL', async ( {
 		page,
 		loop,

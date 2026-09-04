@@ -32,7 +32,55 @@ if ( empty( $block->context['query']['inherit'] ) ) {
 	$base_url = str_replace( '/page/' . get_query_var( 'paged' ), '', remove_query_arg( [ $query_var, $page_var ] ) );
 }
 
-$terms = \HM\Query_Loop_Filter\get_filter_terms( $attributes );
+$post_types = [];
+
+if ( ! empty( $attributes['filterByPostType'] ) ) {
+	global $wp_query;
+
+	$query_context = (array) ( $block->context['query'] ?? [] );
+	$inherit = ! empty( $query_context['inherit'] );
+
+	if ( $inherit ) {
+		$inherited_post_types = $wp_query->get( 'query-filter-post_type' );
+		$post_types = $inherited_post_types === 'any'
+			? get_post_types( [ 'public' => true, 'exclude_from_search' => false ] )
+			: (array) $inherited_post_types;
+	} else {
+		$post_types = array_map( 'trim', explode( ',', $query_context['postType'] ?? 'post' ) );
+	}
+
+	// Support the Advanced Query Loop block's multiple-post-type option.
+	if ( ! $inherit && isset( $query_context['multiple_posts'] ) && is_array( $query_context['multiple_posts'] ) ) {
+		$post_types = array_merge( $post_types, $query_context['multiple_posts'] );
+	}
+
+	// A post type filter changes the effective query without changing the block
+	// context, so prefer its current URL value when one is present.
+	$post_type_query_var = ! empty( $query_context['inherit'] )
+		? 'query-post_type'
+		: sprintf( 'query-%d-post_type', $block->context['queryId'] ?? 0 );
+
+	if ( isset( $_GET[ $post_type_query_var ] ) && is_scalar( $_GET[ $post_type_query_var ] ) ) {
+		$post_types = wp_parse_list( sanitize_text_field( wp_unslash( $_GET[ $post_type_query_var ] ) ) );
+	}
+
+	if ( in_array( 'any', $post_types, true ) ) {
+		$post_types = get_post_types( [
+			'public' => true,
+			'exclude_from_search' => false,
+		] );
+	}
+
+	$post_types = array_values( array_filter( array_unique( $post_types ), 'is_post_type_viewable' ) );
+
+	// Do not fall back to global taxonomy counts when the requested post types
+	// were all unknown or private.
+	if ( empty( $post_types ) ) {
+		return;
+	}
+}
+
+$terms = \HM\Query_Loop_Filter\get_filter_terms( $attributes, $post_types );
 
 if ( empty( $terms ) ) {
 	return;

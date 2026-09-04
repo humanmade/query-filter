@@ -74,9 +74,15 @@ wp_set_object_terms( $unfiled, [], 'category' );
 wp_insert_term( 'Classified', 'qf_hidden', [ 'slug' => 'classified' ] );
 wp_set_object_terms( $alpha_one, [ 'classified' ], 'qf_hidden' );
 
-// Second public post type.
-seed_post( 'Doc One', 'qf_doc' );
+// Second public post type, sharing a taxonomy with regular posts. Each term is
+// used by only one post type so the taxonomy filter can prove it respects the
+// query loop's selected type.
+$doc_one = seed_post( 'Doc One', 'qf_doc' );
 seed_post( 'Doc Two', 'qf_doc' );
+wp_insert_term( 'Posts Only', 'qf_topic', [ 'slug' => 'posts-only' ] );
+wp_insert_term( 'Docs Only', 'qf_topic', [ 'slug' => 'docs-only' ] );
+wp_set_object_terms( $alpha_one, [ 'posts-only' ], 'qf_topic' );
+wp_set_object_terms( $doc_one, [ 'docs-only' ], 'qf_topic' );
 
 // Published, but in a post type that is not publicly queryable. If this title
 // ever appears on the front end, something has gone wrong.
@@ -85,18 +91,19 @@ seed_post( 'Secret One', 'qf_secret' );
 /**
  * Build the block markup for a query loop carrying filter blocks.
  *
- * @param int    $query_id Query ID for the loop.
- * @param string $filters  Serialized filter block markup to place in the loop.
+ * @param int    $query_id  Query ID for the loop.
+ * @param string $filters   Serialized filter block markup to place in the loop.
+ * @param string $post_type Post type queried by the loop.
  * @return string Block markup.
  */
-function query_loop_markup( int $query_id, string $filters ) : string {
+function query_loop_markup( int $query_id, string $filters, string $post_type = 'post' ) : string {
 	$query = wp_json_encode( [
 		'queryId' => $query_id,
 		'query' => [
 			'perPage' => 10,
 			'pages' => 0,
 			'offset' => 0,
-			'postType' => 'post',
+			'postType' => $post_type,
 			'order' => 'asc',
 			'orderBy' => 'title',
 			'author' => '',
@@ -183,6 +190,26 @@ seed_post( 'Search Pagination', 'page', [
 </div>
 <!-- /wp:query -->
 HTML,
+] );
+
+// Page 6: taxonomy terms must be scoped to the custom post type queried here.
+seed_post( 'Post Type Taxonomy Filter', 'page', [
+	'post_name' => 'post-type-taxonomy-filter',
+	'post_content' => query_loop_markup(
+		7,
+		'<!-- wp:query-filter/taxonomy {"taxonomy":"qf_topic","filterByPostType":true} /-->',
+		'qf_doc'
+	),
+] );
+
+// Page 7: the option defaults off so existing blocks keep global term counts.
+seed_post( 'Global Taxonomy Filter', 'page', [
+	'post_name' => 'global-taxonomy-filter',
+	'post_content' => query_loop_markup(
+		8,
+		'<!-- wp:query-filter/taxonomy {"taxonomy":"qf_topic"} /-->',
+		'qf_doc'
+	),
 ] );
 
 update_option( 'query_filter_e2e_seeded', 1 );

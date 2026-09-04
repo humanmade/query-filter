@@ -21,6 +21,7 @@ export default function Edit( { attributes, setAttributes } ) {
 		layoutDirection,
 		includeTerms,
 		excludeTerms,
+		filterByPostType,
 		maxVisibleTerms,
 		showAllLabel,
 	} = attributes;
@@ -189,6 +190,20 @@ export default function Edit( { attributes, setAttributes } ) {
 					title={ __( 'Terms', 'query-filter' ) }
 					initialOpen={ false }
 				>
+					<ToggleControl
+						label={ __(
+							'Only show terms used by queried post types',
+							'query-filter'
+						) }
+						checked={ filterByPostType }
+						onChange={ ( value ) =>
+							setAttributes( { filterByPostType: value } )
+						}
+						help={ __(
+							'Hide terms that are only assigned to content types outside this Query Loop.',
+							'query-filter'
+						) }
+					/>
 					<FormTokenField
 						label={ __(
 							'Include only these terms',
