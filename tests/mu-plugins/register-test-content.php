@@ -40,6 +40,15 @@ function register_test_content() : void {
 		'supports' => [ 'title', 'editor' ],
 	] );
 
+	// Shared taxonomy used to prove that term choices respect a loop's post type.
+	register_taxonomy( 'qf_topic', [ 'post', 'qf_doc' ], [
+		'label' => 'Topics',
+		'public' => true,
+		'publicly_queryable' => true,
+		'show_in_rest' => true,
+		'hierarchical' => false,
+	] );
+
 	// Private taxonomy, for the same reason.
 	register_taxonomy( 'qf_hidden', [ 'post' ], [
 		'label' => 'Hidden',

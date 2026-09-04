@@ -51,12 +51,15 @@ Seeding is idempotent, guarded by the `query_filter_e2e_seeded` option.
 | `/post-type-filter/` | 3 | Post type filter and core search block |
 | `/no-inherit-context/` | 4 | Both filters, in a query loop whose `query` context omits `inherit` |
 | `/search-pagination/` | 5 | Core search block and pagination, two posts to a page |
+| `/post-type-taxonomy-filter/` | 7 | Taxonomy filter scoped to terms assigned to the loop's `qf_doc` post type |
+| `/global-taxonomy-filter/` | 8 | Taxonomy filter using the default global term counts |
 
 Posts: `Alpha One` and `Alpha Two` in the `alpha` category, `Beta One` in
 `beta`, and `Unfiled Post` in neither — so an active filter is always
 distinguishable from no filter. `Doc One` and `Doc Two` are in the public
-`qf_doc` post type. `Secret One` is published in the private `qf_secret` post
-type and must never appear on the front end.
+`qf_doc` post type. The shared `qf_topic` taxonomy has a `Posts Only` term on a
+post and a `Docs Only` term on a document. `Secret One` is published in the
+private `qf_secret` post type and must never appear on the front end.
 
 ## Configuration
 

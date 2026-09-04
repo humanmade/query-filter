@@ -14,7 +14,7 @@ Easy to use and lightweight, built using the WordPress Interactivity API.
 
 * Add a query block. This can anyhere that the query block is supported e.g. page, template, or pattern.
 * Add one of the filter blocks and configure as required:
-    * Taxonomy filter. Select which taxonomy to to use, customise the label (and whether it's shown), and customise the text used when none is selected.
+    * Taxonomy filter. Select which taxonomy to use, customise the label (and whether it's shown), customise the text used when none is selected, and optionally limit the available terms to those assigned to the Query Loop's post types.
     * Post type filter. Customise the label (and whether it's shown), as well as the text used when no filter is applied.
     * Search block. No extra options.
  

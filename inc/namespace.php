@@ -19,6 +19,7 @@ function bootstrap() : void {
 	// General hooks.
 	add_filter( 'query_loop_block_query_vars', __NAMESPACE__ . '\\filter_query_loop_block_query_vars', 10, 3 );
 	add_action( 'pre_get_posts', __NAMESPACE__ . '\\pre_get_posts_transpose_query_vars' );
+	add_filter( 'terms_clauses', __NAMESPACE__ . '\\filter_terms_clauses_by_post_types', 10, 3 );
 	add_filter( 'block_type_metadata', __NAMESPACE__ . '\\filter_block_type_metadata', 10 );
 	add_action( 'init', __NAMESPACE__ . '\\register_blocks' );
 
@@ -184,17 +185,21 @@ function pre_get_posts_transpose_query_vars( WP_Query $query ) : void {
  *
  * Two modes, selected by whether `includeTerms` is populated:
  *
- * - Curated: render exactly the listed terms, in the order given. Empty terms
- *   are kept, because naming a term explicitly is unambiguous intent.
+ * - Curated: render the listed terms, in the order given.
  * - Derived: render every term with posts, minus `excludeTerms`.
+ *
+ * When post types are provided, both modes are limited to terms assigned to a
+ * published post of one of those types. Core's `hide_empty` option only uses a
+ * taxonomy's global counts and cannot distinguish between post types.
  *
  * Terms are addressed by slug rather than ID so that curated lists stay
  * readable and reviewable in pattern markup.
  *
- * @param array $attributes Taxonomy filter block attributes.
+ * @param array    $attributes Taxonomy filter block attributes.
+ * @param string[] $post_types Post types represented by the query loop.
  * @return \WP_Term[] Terms to render, in display order.
  */
-function get_filter_terms( array $attributes ) : array {
+function get_filter_terms( array $attributes, array $post_types = [] ) : array {
 	$include = array_filter( (array) ( $attributes['includeTerms'] ?? [] ) );
 	$exclude = array_filter( (array) ( $attributes['excludeTerms'] ?? [] ) );
 
@@ -208,6 +213,7 @@ function get_filter_terms( array $attributes ) : array {
 		'hide_empty' => empty( $include ),
 		'slug' => $include_slugs,
 		'number' => 100,
+		'query_filter_post_types' => $post_types,
 	] );
 
 	if ( is_wp_error( $terms ) || empty( $terms ) ) {
@@ -233,6 +239,40 @@ function get_filter_terms( array $attributes ) : array {
 	}
 
 	return $terms;
+}
+
+/**
+ * Limit a term query to relationships with published posts of selected types.
+ *
+ * This is opt-in through the private `query_filter_post_types` argument used by
+ * get_filter_terms(). Keeping the constraint in the term query avoids loading
+ * every matching post ID into PHP merely to pass them back through object_ids.
+ *
+ * @param array    $clauses    SQL clauses for the terms query.
+ * @param string[] $taxonomies Taxonomies requested by the query.
+ * @param array    $args       Term query arguments.
+ * @return array Filtered SQL clauses.
+ */
+function filter_terms_clauses_by_post_types( array $clauses, array $taxonomies, array $args ) : array {
+	$post_types = array_values( array_filter( array_unique( (array) ( $args['query_filter_post_types'] ?? [] ) ) ) );
+
+	if ( empty( $post_types ) ) {
+		return $clauses;
+	}
+
+	global $wpdb;
+
+	$placeholders = implode( ', ', array_fill( 0, count( $post_types ), '%s' ) );
+	$clauses['join'] .= " INNER JOIN {$wpdb->term_relationships} AS query_filter_relationships ON query_filter_relationships.term_taxonomy_id = tt.term_taxonomy_id";
+	$clauses['join'] .= " INNER JOIN {$wpdb->posts} AS query_filter_posts ON query_filter_posts.ID = query_filter_relationships.object_id";
+	$clauses['where'] .= $wpdb->prepare(
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- The placeholder list is generated internally and every value is prepared below.
+		" AND query_filter_posts.post_type IN ({$placeholders}) AND query_filter_posts.post_status = %s",
+		array_merge( $post_types, [ 'publish' ] )
+	);
+	$clauses['distinct'] = 'DISTINCT';
+
+	return $clauses;
 }
 
 /**
