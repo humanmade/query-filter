@@ -20,6 +20,7 @@ if ( ! $taxonomy || ! is_taxonomy_viewable( $taxonomy ) ) {
 $id = 'query-filter-' . wp_generate_uuid4();
 $display_type = $attributes['displayType'] ?? 'select';
 $layout_direction = $attributes['layoutDirection'] ?? 'vertical';
+$hierarchy = \HM\Query_Loop_Filter\get_hierarchy_mode( $attributes, $taxonomy->name );
 
 if ( empty( $block->context['query']['inherit'] ) ) {
 	$query_id = $block->context['queryId'] ?? 0;
@@ -46,25 +47,71 @@ $current_value = sanitize_text_field( urldecode( wp_unslash( $_GET[ $query_var ]
 
 $selected_terms = wp_parse_list( $current_value );
 
+// In a hierarchy the "terms" the overflow cap and the toggle act on are the
+// top level branches; a child always travels with its parent.
+$tree = $hierarchy === 'flat'
+	? array_map( fn ( WP_Term $term ) => [ 'term' => $term, 'children' => [] ], $terms )
+	: \HM\Query_Loop_Filter\build_term_tree( $terms );
+
 // Terms past the cap are collapsed behind a "show all" toggle. A term the visitor has
 // already selected is always visible, so the control never hides its own active state.
 $max_visible = (int) ( $attributes['maxVisibleTerms'] ?? 0 );
-$has_overflow = $max_visible > 0 && count( $terms ) > $max_visible;
+$has_overflow = $max_visible > 0 && count( $tree ) > $max_visible;
 $show_all_label = $attributes['showAllLabel'] ?: __( 'See all', 'query-filter' );
 
 /**
- * Return whether a term should be hidden behind the "show all" toggle.
+ * Return whether a term is part of the current selection.
  *
- * @param int     $index Position of the term in the rendered list.
- * @param WP_Term $term  Term being rendered.
- * @return bool True when the term belongs to the collapsed overflow.
+ * @param WP_Term $term Term to test.
+ * @return bool True when the term is selected.
  */
-$is_overflow_term = function ( int $index, WP_Term $term ) use ( $has_overflow, $max_visible, $selected_terms ) : bool {
+$is_selected = function ( WP_Term $term ) use ( $selected_terms ) : bool {
+	return in_array( urldecode( $term->slug ), $selected_terms, true );
+};
+
+/**
+ * Return whether a branch, or anything beneath it, is part of the current selection.
+ *
+ * @param array $node Tree node.
+ * @return bool True when the node or a descendant is selected.
+ */
+$branch_has_selection = function ( array $node ) use ( &$branch_has_selection, $is_selected ) : bool {
+	if ( $is_selected( $node['term'] ) ) {
+		return true;
+	}
+
+	foreach ( $node['children'] as $child ) {
+		if ( $branch_has_selection( $child ) ) {
+			return true;
+		}
+	}
+
+	return false;
+};
+
+/**
+ * Return whether a top level branch should be hidden behind the "show all" toggle.
+ *
+ * @param int   $index Position of the branch in the rendered list.
+ * @param array $node  Tree node being rendered.
+ * @return bool True when the branch belongs to the collapsed overflow.
+ */
+$is_overflow_term = function ( int $index, array $node ) use ( $has_overflow, $max_visible, $branch_has_selection ) : bool {
 	if ( ! $has_overflow || $index < $max_visible ) {
 		return false;
 	}
 
-	return ! in_array( urldecode( $term->slug ), $selected_terms, true );
+	return ! $branch_has_selection( $node );
+};
+
+/**
+ * Build the URL that selects a single term, replacing the current selection.
+ *
+ * @param WP_Term $term Term to select.
+ * @return string URL for the term.
+ */
+$select_url = function ( WP_Term $term ) use ( $query_var, $page_var, $base_url ) : string {
+	return add_query_arg( [ $query_var => $term->slug, $page_var => false ], $base_url );
 };
 
 /**
@@ -85,11 +132,108 @@ $toggle_url = function ( WP_Term $term ) use ( $selected_terms, $query_var, $pag
 		: add_query_arg( [ $query_var => implode( ',', $next ), $page_var => false ], $base_url );
 };
 
+/**
+ * Render the input for one term, in the current display type.
+ *
+ * @param WP_Term $term Term to render.
+ * @return void
+ */
+$render_input = function ( WP_Term $term ) use ( $display_type, $id, $is_selected, $select_url, $toggle_url ) : void {
+	if ( $display_type === 'radio' ) {
+		printf(
+			'<input type="radio" name="%s" value="%s" data-wp-on--change="actions.navigate" %s />',
+			esc_attr( $id ),
+			esc_attr( $select_url( $term ) ),
+			checked( $is_selected( $term ), true, false )
+		);
+		return;
+	}
+
+	printf(
+		'<input type="checkbox" value="%s" data-wp-on--change="actions.navigate" %s />',
+		esc_attr( $toggle_url( $term ) ),
+		checked( $is_selected( $term ), true, false )
+	);
+};
+
+/**
+ * Render a list of tree nodes as nested markup, recursing into children.
+ *
+ * Only used for the nested and collapsed hierarchy modes. In collapsed mode
+ * each parent carries an `expanded` flag in its own interactivity context, so
+ * a branch opens and closes independently; a branch holding the active
+ * selection starts open so the control never hides its own state.
+ *
+ * @param array[] $nodes Tree nodes at one level.
+ * @param int     $depth Depth of these nodes, zero for the top level.
+ * @return void
+ */
+$render_branch = function ( array $nodes, int $depth ) use ( &$render_branch, $hierarchy, $render_input, $is_overflow_term, $branch_has_selection ) : void {
+	printf(
+		'<ul class="wp-block-query-filter__term-list" data-depth="%d"%s>',
+		(int) $depth,
+		$depth > 0 && $hierarchy === 'collapsed' ? ' data-wp-bind--hidden="!context.expanded"' : ''
+	);
+
+	foreach ( $nodes as $index => $node ) {
+		$term = $node['term'];
+		$has_children = ! empty( $node['children'] );
+		$classes = [ 'wp-block-query-filter__term' ];
+		$item_attributes = '';
+
+		if ( $has_children ) {
+			$classes[] = 'has-children';
+		}
+
+		if ( $depth === 0 && $is_overflow_term( $index, $node ) ) {
+			$classes[] = 'is-overflow-term';
+			$item_attributes .= ' data-wp-bind--hidden="!context.showAllTerms"';
+		}
+
+		if ( $has_children && $hierarchy === 'collapsed' ) {
+			$item_attributes .= sprintf(
+				' data-wp-context="%s"',
+				esc_attr( wp_json_encode( [ 'expanded' => $branch_has_selection( $node ) ] ) )
+			);
+		}
+
+		// phpcs:ignore HM.Security.EscapeOutput.OutputNotEscaped -- Assembled above from literal attribute names and esc_attr()'d values.
+		printf( '<li class="%s"%s>', esc_attr( implode( ' ', $classes ) ), $item_attributes );
+		echo '<label>';
+		$render_input( $term );
+		echo esc_html( $term->name );
+		echo '</label>';
+
+		if ( $has_children && $hierarchy === 'collapsed' ) {
+			printf(
+				'<button type="button" class="wp-block-query-filter__toggle-children" data-wp-on--click="actions.toggleChildren" data-wp-bind--aria-expanded="context.expanded"><span class="screen-reader-text">%s</span></button>',
+				/* translators: %s: parent term name. */
+				esc_html( sprintf( __( 'Toggle terms within %s', 'query-filter' ), $term->name ) )
+			);
+		}
+
+		if ( $has_children ) {
+			$render_branch( $node['children'], $depth + 1 );
+		}
+
+		echo '</li>';
+	}
+
+	echo '</ul>';
+};
+
 $context = [];
 
 if ( $has_overflow ) {
 	$context['showAllTerms'] = false;
 }
+
+$group_classes = sprintf(
+	'wp-block-query-filter-taxonomy__%1$s-group wp-block-query-filter__%1$s-group%2$s%3$s',
+	$display_type,
+	$layout_direction === 'horizontal' ? ' horizontal' : '',
+	$hierarchy === 'flat' ? '' : ' is-hierarchy-' . $hierarchy
+);
 ?>
 
 <div <?php echo get_block_wrapper_attributes( [ 'class' => 'wp-block-query-filter' ] ); ?> data-wp-interactive="query-filter" data-wp-context="<?php echo esc_attr( wp_json_encode( (object) $context ) ); ?>">
@@ -100,33 +244,48 @@ if ( $has_overflow ) {
 	<?php if ( $display_type === 'select' ) : ?>
 		<select class="wp-block-query-filter-taxonomy__select wp-block-query-filter__select" id="<?php echo esc_attr( $id ); ?>" data-wp-on--change="actions.navigate">
 			<option value="<?php echo esc_attr( $base_url ); ?>"><?php echo esc_html( $attributes['emptyLabel'] ?: __( 'All', 'query-filter' ) ); ?></option>
-			<?php foreach ( $terms as $term ) : ?>
-				<option value="<?php
-					echo esc_attr( add_query_arg( [ $query_var => $term->slug, $page_var => false ], $base_url ) );
-				?>" <?php selected( urldecode( $term->slug ), $current_value ); ?>><?php echo esc_html( $term->name ); ?></option>
+			<?php foreach ( \HM\Query_Loop_Filter\flatten_term_tree( $tree ) as $row ) : ?>
+				<option value="<?php echo esc_attr( $select_url( $row['term'] ) ); ?>" <?php selected( $is_selected( $row['term'] ) ); ?>><?php
+					// A select has no nesting of its own, so depth is conveyed the way
+					// WordPress's own category dropdown does it: by a dash per level.
+					echo esc_html( str_repeat( '— ', $row['depth'] ) . $row['term']->name );
+				?></option>
 			<?php endforeach; ?>
 		</select>
+	<?php elseif ( $hierarchy !== 'flat' ) : ?>
+		<div class="<?php echo esc_attr( $group_classes ); ?>">
+			<?php if ( $display_type === 'radio' ) : ?>
+				<label>
+					<input type="radio" id="<?php echo esc_attr( $id ); ?>" name="<?php echo esc_attr( $id ); ?>" value="<?php echo esc_attr( $base_url ); ?>" data-wp-on--change="actions.navigate" <?php checked( empty( $_GET[ $query_var ] ) ); ?> />
+					<?php echo esc_html( $attributes['emptyLabel'] ?: __( 'All', 'query-filter' ) ); ?>
+				</label>
+			<?php endif; ?>
+			<?php $render_branch( $tree, 0 ); ?>
+			<?php if ( $has_overflow ) : ?>
+				<button type="button" class="wp-block-query-filter__show-all" data-wp-on--click="actions.toggleAllTerms" data-wp-bind--hidden="context.showAllTerms">
+					<?php echo esc_html( $show_all_label ); ?>
+				</button>
+			<?php endif; ?>
+		</div>
 	<?php elseif ( $display_type === 'radio' ) : ?>
-		<div class="wp-block-query-filter-taxonomy__radio-group wp-block-query-filter__radio-group<?php echo $layout_direction === 'horizontal' ? ' horizontal' : ''; ?>">
+		<div class="<?php echo esc_attr( $group_classes ); ?>">
 			<label>
 				<input type="radio" id="<?php echo esc_attr( $id ); ?>" name="<?php echo esc_attr( $id ); ?>" value="<?php echo esc_attr( $base_url ); ?>" data-wp-on--change="actions.navigate" <?php checked( empty( $_GET[ $query_var ] ) ); ?> />
 				<?php echo esc_html( $attributes['emptyLabel'] ?: __( 'All', 'query-filter' ) ); ?>
 			</label>
 			<?php foreach ( $terms as $term ) : ?>
 				<label>
-					<input type="radio" name="<?php echo esc_attr( $id ); ?>" value="<?php
-						echo esc_attr( add_query_arg( [ $query_var => $term->slug, $page_var => false ], $base_url ) );
-					?>" data-wp-on--change="actions.navigate" <?php checked( urldecode( $term->slug ), $current_value ); ?> />
+					<?php $render_input( $term ); ?>
 					<?php echo esc_html( $term->name ); ?>
 				</label>
 			<?php endforeach; ?>
 		</div>
 	<?php elseif ( $display_type === 'checkbox' ) : ?>
-		<div class="wp-block-query-filter-taxonomy__checkbox-group wp-block-query-filter__checkbox-group<?php echo $layout_direction === 'horizontal' ? ' horizontal' : ''; ?>">
-			<?php foreach ( $terms as $index => $term ) : ?>
-				<label<?php echo $is_overflow_term( $index, $term ) ? ' class="is-overflow-term" data-wp-bind--hidden="!context.showAllTerms"' : ''; ?>>
-					<input type="checkbox" value="<?php echo esc_attr( $toggle_url( $term ) ); ?>" data-wp-on--change="actions.navigate" <?php checked( in_array( urldecode( $term->slug ), $selected_terms, true ) ); ?> />
-					<?php echo esc_html( $term->name ); ?>
+		<div class="<?php echo esc_attr( $group_classes ); ?>">
+			<?php foreach ( $tree as $index => $node ) : ?>
+				<label<?php echo $is_overflow_term( $index, $node ) ? ' class="is-overflow-term" data-wp-bind--hidden="!context.showAllTerms"' : ''; ?>>
+					<?php $render_input( $node['term'] ); ?>
+					<?php echo esc_html( $node['term']->name ); ?>
 				</label>
 			<?php endforeach; ?>
 			<?php if ( $has_overflow ) : ?>
