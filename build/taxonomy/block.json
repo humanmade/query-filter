@@ -68,6 +68,15 @@
       "type": "string",
       "default": "vertical"
     },
+    "hierarchy": {
+      "type": "string",
+      "enum": [
+        "flat",
+        "nested",
+        "collapsed"
+      ],
+      "default": "flat"
+    },
     "includeTerms": {
       "type": "array",
       "items": {
