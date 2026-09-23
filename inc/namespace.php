@@ -238,9 +238,9 @@ function get_filter_terms( array $attributes ) : array {
 /**
  * Resolve the hierarchy mode a taxonomy filter block should render with.
  *
- * The saved attribute is only honoured where it can mean something: a flat
- * taxonomy has no tree to show, and a select control has no rows to collapse,
- * so those cases degrade to the nearest mode that does apply.
+ * If the saved attribute is incompatible with the taxonomy type (a flat
+ * taxonomy has no tree view, and a select control has no rows to collapse)
+ * the value falls back to the nearest relevant mode.
  *
  * @param array  $attributes Taxonomy filter block attributes.
  * @param string $taxonomy   Taxonomy name.
