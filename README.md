@@ -14,7 +14,7 @@ Easy to use and lightweight, built using the WordPress Interactivity API.
 
 * Add a query block. This can anyhere that the query block is supported e.g. page, template, or pattern.
 * Add one of the filter blocks and configure as required:
-    * Taxonomy filter. Select which taxonomy to to use, customise the label (and whether it's shown), and customise the text used when none is selected.
+    * Taxonomy filter. Select which taxonomy to to use, customise the label (and whether it's shown), and customise the text used when none is selected. For a hierarchical taxonomy, choose how the tree is shown: a flat list (the default), nested beneath parents, or nested with each parent's children collapsed behind a toggle. Selecting a parent also matches posts in its children.
     * Post type filter. Customise the label (and whether it's shown), as well as the text used when no filter is applied.
     * Search block. No extra options.
  

@@ -43,6 +43,10 @@ store( 'query-filter', {
 			const context = getContext();
 			context.showAllTerms = ! context.showAllTerms;
 		},
+		toggleChildren() {
+			const context = getContext();
+			context.expanded = ! context.expanded;
+		},
 		search: withSyncEvent( function* ( e ) {
 			e.preventDefault();
 			// Scope search to block context so multiple searchable query loops may coexist.
