@@ -36,6 +36,15 @@ test.describe( 'Search filter in an inherited query', () => {
 		await page.waitForURL( /\?s=$/ );
 
 		// An empty term is still a search to WordPress, and returns everything.
-		await expect.poll( () => loop.titles() ).toContain( POSTS.beta[ 0 ] );
+		// The main query pages those results newest first, so which titles land
+		// on the first page shifts as fixtures are added. Anything outside the
+		// Alpha set proves the search was cleared.
+		await expect
+			.poll( async () =>
+				( await loop.titles() ).some(
+					( title ) => ! POSTS.alpha.includes( title )
+				)
+			)
+			.toBe( true );
 	} );
 } );

@@ -236,6 +236,93 @@ function get_filter_terms( array $attributes ) : array {
 }
 
 /**
+ * Resolve the hierarchy mode a taxonomy filter block should render with.
+ *
+ * The saved attribute is only honoured where it can mean something: a flat
+ * taxonomy has no tree to show, and a select control has no rows to collapse,
+ * so those cases degrade to the nearest mode that does apply.
+ *
+ * @param array  $attributes Taxonomy filter block attributes.
+ * @param string $taxonomy   Taxonomy name.
+ * @return string One of `flat`, `nested` or `collapsed`.
+ */
+function get_hierarchy_mode( array $attributes, string $taxonomy ) : string {
+	$mode = $attributes['hierarchy'] ?? 'flat';
+
+	if ( ! in_array( $mode, [ 'flat', 'nested', 'collapsed' ], true ) ) {
+		return 'flat';
+	}
+
+	if ( $mode !== 'flat' && ! is_taxonomy_hierarchical( $taxonomy ) ) {
+		return 'flat';
+	}
+
+	if ( $mode === 'collapsed' && ( $attributes['displayType'] ?? 'select' ) === 'select' ) {
+		return 'nested';
+	}
+
+	return $mode;
+}
+
+/**
+ * Nest a flat list of terms by parent.
+ *
+ * Each node is `[ 'term' => WP_Term, 'children' => array ]`, so that a term
+ * object is never given ad hoc properties. A term whose parent is not in the
+ * list is promoted to a root, which keeps a curated or filtered list whole
+ * instead of silently dropping the branches whose parents were left out.
+ * Sibling order follows the order of the input.
+ *
+ * @param \WP_Term[] $terms Terms to nest.
+ * @return array[] Root nodes, each carrying its descendants.
+ */
+function build_term_tree( array $terms ) : array {
+	$ids = array_column( $terms, 'term_id' );
+	$children_of = [];
+
+	foreach ( $terms as $term ) {
+		$parent = in_array( $term->parent, $ids, true ) ? $term->parent : 0;
+		$children_of[ $parent ][] = $term;
+	}
+
+	$build = function ( int $parent_id ) use ( &$build, $children_of ) : array {
+		return array_map(
+			fn ( \WP_Term $term ) => [
+				'term' => $term,
+				'children' => $build( $term->term_id ),
+			],
+			$children_of[ $parent_id ] ?? []
+		);
+	};
+
+	return $build( 0 );
+}
+
+/**
+ * Flatten a term tree back into depth-first order, recording each depth.
+ *
+ * Used where nested markup is not possible, such as `<option>` elements, so
+ * the tree can still be conveyed by indentation.
+ *
+ * @param array[] $tree  Nodes as returned by build_term_tree().
+ * @param int     $depth Depth of the nodes passed, zero for roots.
+ * @return array[] Rows of `[ 'term' => WP_Term, 'depth' => int ]`.
+ */
+function flatten_term_tree( array $tree, int $depth = 0 ) : array {
+	$rows = [];
+
+	foreach ( $tree as $node ) {
+		$rows[] = [
+			'term' => $node['term'],
+			'depth' => $depth,
+		];
+		$rows = array_merge( $rows, flatten_term_tree( $node['children'], $depth + 1 ) );
+	}
+
+	return $rows;
+}
+
+/**
  * Filters the settings determined from the block type metadata.
  *
  * @param array $metadata Metadata provided for registering a block type.

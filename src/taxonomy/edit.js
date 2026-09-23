@@ -19,6 +19,7 @@ export default function Edit( { attributes, setAttributes } ) {
 		showLabel,
 		displayType,
 		layoutDirection,
+		hierarchy,
 		includeTerms,
 		excludeTerms,
 		maxVisibleTerms,
@@ -78,6 +79,89 @@ export default function Edit( { attributes, setAttributes } ) {
 				.map( ( slug ) => terms.find( ( term ) => term.slug === slug ) )
 				.filter( Boolean )
 		: terms.filter( ( term ) => ! excludeTerms.includes( term.slug ) );
+
+	const isHierarchical = !! taxonomies?.find(
+		( tax ) => tax.slug === taxonomy
+	)?.hierarchical;
+
+	// Mirror the server side fallbacks: a flat taxonomy has no tree to show,
+	// and a select control has no rows to collapse.
+	let hierarchyMode = isHierarchical ? hierarchy : 'flat';
+	if ( hierarchyMode === 'collapsed' && displayType === 'select' ) {
+		hierarchyMode = 'nested';
+	}
+
+	// Nest the preview terms by parent, promoting orphans to roots, in the
+	// same way build_term_tree() does on the server.
+	const buildTree = ( list ) => {
+		const ids = list.map( ( term ) => term.id );
+		const childrenOf = {};
+		list.forEach( ( term ) => {
+			const parent = ids.includes( term.parent ) ? term.parent : 0;
+			childrenOf[ parent ] = [ ...( childrenOf[ parent ] || [] ), term ];
+		} );
+		const build = ( parent ) =>
+			( childrenOf[ parent ] || [] ).map( ( term ) => ( {
+				term,
+				children: build( term.id ),
+			} ) );
+		return build( 0 );
+	};
+
+	const flattenTree = ( nodes, depth = 0 ) =>
+		nodes.flatMap( ( node ) => [
+			{ term: node.term, depth },
+			...flattenTree( node.children, depth + 1 ),
+		] );
+
+	const previewTree =
+		hierarchyMode === 'flat'
+			? previewTerms.map( ( term ) => ( { term, children: [] } ) )
+			: buildTree( previewTerms );
+
+	const hierarchyOptions = [
+		{ label: __( 'Flat list', 'query-filter' ), value: 'flat' },
+		{ label: __( 'Nested', 'query-filter' ), value: 'nested' },
+	];
+	if ( displayType !== 'select' ) {
+		hierarchyOptions.push( {
+			label: __( 'Nested, children collapsed', 'query-filter' ),
+			value: 'collapsed',
+		} );
+	}
+
+	const renderPreviewBranch = ( nodes, depth ) => (
+		<ul className="wp-block-query-filter__term-list" data-depth={ depth }>
+			{ nodes.map( ( node ) => (
+				<li
+					key={ node.term.slug }
+					className={ `wp-block-query-filter__term${
+						node.children.length ? ' has-children' : ''
+					}` }
+				>
+					<label>
+						<input
+							type={ displayType }
+							name="taxonomy-preview"
+							inert="true"
+						/>
+						{ node.term.name }
+					</label>
+					{ node.children.length > 0 &&
+						hierarchyMode === 'collapsed' && (
+							<button
+								type="button"
+								className="wp-block-query-filter__toggle-children"
+								aria-expanded="true"
+								inert="true"
+							/>
+						) }
+					{ node.children.length > 0 &&
+						renderPreviewBranch( node.children, depth + 1 ) }
+				</li>
+			) ) }
+		</ul>
+	);
 
 	return (
 		<>
@@ -159,6 +243,20 @@ export default function Edit( { attributes, setAttributes } ) {
 								label={ __( 'Horizontal', 'query-filter' ) }
 							/>
 						</ToggleGroupControl>
+					) }
+					{ isHierarchical && (
+						<SelectControl
+							label={ __( 'Hierarchy', 'query-filter' ) }
+							value={ hierarchyMode }
+							options={ hierarchyOptions }
+							onChange={ ( value ) =>
+								setAttributes( { hierarchy: value } )
+							}
+							help={ __(
+								'Show child terms beneath their parents. Selecting a parent also matches posts in its children.',
+								'query-filter'
+							) }
+						/>
 					) }
 					<TextControl
 						label={ __( 'Label', 'query-filter' ) }
@@ -269,8 +367,10 @@ export default function Edit( { attributes, setAttributes } ) {
 						<option>
 							{ emptyLabel || __( 'All', 'query-filter' ) }
 						</option>
-						{ previewTerms.map( ( term ) => (
-							<option key={ term.slug }>{ term.name }</option>
+						{ flattenTree( previewTree ).map( ( { term, depth } ) => (
+							<option key={ term.slug }>
+								{ '— '.repeat( depth ) + term.name }
+							</option>
 						) ) }
 					</select>
 				) }
@@ -279,6 +379,10 @@ export default function Edit( { attributes, setAttributes } ) {
 						className={ `wp-block-query-filter-taxonomy__radio-group wp-block-query-filter__radio-group${
 							layoutDirection === 'horizontal'
 								? ' horizontal'
+								: ''
+						}${
+							hierarchyMode !== 'flat'
+								? ` is-hierarchy-${ hierarchyMode }`
 								: ''
 						}` }
 					>
@@ -291,16 +395,19 @@ export default function Edit( { attributes, setAttributes } ) {
 							/>
 							{ emptyLabel || __( 'All', 'query-filter' ) }
 						</label>
-						{ previewTerms.map( ( term ) => (
-							<label key={ term.slug }>
-								<input
-									type="radio"
-									name="taxonomy-preview"
-									inert="true"
-								/>
-								{ term.name }
-							</label>
-						) ) }
+						{ hierarchyMode === 'flat' &&
+							previewTerms.map( ( term ) => (
+								<label key={ term.slug }>
+									<input
+										type="radio"
+										name="taxonomy-preview"
+										inert="true"
+									/>
+									{ term.name }
+								</label>
+							) ) }
+						{ hierarchyMode !== 'flat' &&
+							renderPreviewBranch( previewTree, 0 ) }
 					</div>
 				) }
 				{ displayType === 'checkbox' && (
@@ -309,14 +416,21 @@ export default function Edit( { attributes, setAttributes } ) {
 							layoutDirection === 'horizontal'
 								? ' horizontal'
 								: ''
+						}${
+							hierarchyMode !== 'flat'
+								? ` is-hierarchy-${ hierarchyMode }`
+								: ''
 						}` }
 					>
-						{ previewTerms.map( ( term ) => (
-							<label key={ term.slug }>
-								<input type="checkbox" inert="true" />
-								{ term.name }
-							</label>
-						) ) }
+						{ hierarchyMode === 'flat' &&
+							previewTerms.map( ( term ) => (
+								<label key={ term.slug }>
+									<input type="checkbox" inert="true" />
+									{ term.name }
+								</label>
+							) ) }
+						{ hierarchyMode !== 'flat' &&
+							renderPreviewBranch( previewTree, 0 ) }
 					</div>
 				) }
 			</div>
