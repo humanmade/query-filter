@@ -33,12 +33,6 @@ if ( empty( $block->context['query']['inherit'] ) ) {
 	$base_url = str_replace( '/page/' . get_query_var( 'paged' ), '', remove_query_arg( [ $query_var, $page_var ] ) );
 }
 
-$terms = \HM\Query_Loop_Filter\get_filter_terms( $attributes );
-
-if ( empty( $terms ) ) {
-	return;
-}
-
 // Non-ASCII term slugs are stored URL-encoded (e.g. "%e6%97%a5"), but arrive from $_GET
 // predecoded to raw UTF-8. Normalize the current filter value to the same form used in
 // pre_get_posts_transpose_query_vars() to compare directly against urldecode($term->slug).
@@ -46,6 +40,65 @@ if ( empty( $terms ) ) {
 $current_value = sanitize_text_field( urldecode( wp_unslash( $_GET[ $query_var ] ?? '' ) ) );
 
 $selected_terms = wp_parse_list( $current_value );
+
+// Counts are taken within the current query, only when something here uses them.
+$show_count = ! empty( $attributes['showCount'] );
+$counts = $show_count || ! empty( $attributes['hideEmpty'] )
+	? \HM\Query_Loop_Filter\get_filter_term_counts( $block, $taxonomy->name )
+	: null;
+
+// A filter hiding empty terms offers the terms that have results in the current query,
+// looked up by ID, along with any the visitor has selected, so the control can always
+// undo its own state. Counts include descendants, so a parent stays whenever any of its
+// children does. Without counts, the terms are found as they otherwise would be.
+$term_ids = null;
+
+if ( is_array( $counts ) && ! empty( $attributes['hideEmpty'] ) ) {
+	$term_ids = array_keys( array_filter( $counts ) );
+
+	foreach ( $selected_terms as $slug ) {
+		$selected = get_term_by( 'slug', $slug, $taxonomy->name );
+
+		if ( $selected instanceof WP_Term ) {
+			$term_ids[] = $selected->term_id;
+		}
+	}
+}
+
+$terms = \HM\Query_Loop_Filter\get_filter_terms( $attributes, $term_ids );
+
+// A curated list is looked up by slug, in its own order, so its empty terms go here.
+if ( is_array( $term_ids ) ) {
+	$terms = array_values( array_filter(
+		$terms,
+		fn ( WP_Term $term ) => in_array( $term->term_id, $term_ids, true )
+	) );
+}
+
+if ( empty( $terms ) ) {
+	return;
+}
+
+/**
+ * Return a term's label, with its count in the current query when counts are shown.
+ *
+ * @param WP_Term $term Term to label.
+ * @param bool    $html Whether markup may wrap the count; an <option> takes text only.
+ * @return string Escaped label.
+ */
+$term_label = function ( WP_Term $term, bool $html = true ) use ( $counts, $show_count ) : string {
+	$label = esc_html( $term->name );
+
+	if ( ! $show_count || ! is_array( $counts ) ) {
+		return $label;
+	}
+
+	$count = (int) ( $counts[ $term->term_id ] ?? 0 );
+
+	return $html
+		? sprintf( '%s <span class="wp-block-query-filter__count">(%s)</span>', $label, esc_html( number_format_i18n( $count ) ) )
+		: sprintf( '%s (%s)', $label, esc_html( number_format_i18n( $count ) ) );
+};
 
 // In a hierarchy the "terms" the overflow cap and the toggle act on are the
 // top level branches; a child always travels with its parent.
@@ -168,7 +221,7 @@ $render_input = function ( WP_Term $term ) use ( $display_type, $id, $is_selecte
  * @param int     $depth Depth of these nodes, zero for the top level.
  * @return void
  */
-$render_branch = function ( array $nodes, int $depth ) use ( &$render_branch, $hierarchy, $render_input, $is_overflow_term, $branch_has_selection ) : void {
+$render_branch = function ( array $nodes, int $depth ) use ( &$render_branch, $hierarchy, $render_input, $is_overflow_term, $branch_has_selection, $term_label ) : void {
 	printf(
 		'<ul class="wp-block-query-filter__term-list" data-depth="%d"%s>',
 		(int) $depth,
@@ -201,7 +254,7 @@ $render_branch = function ( array $nodes, int $depth ) use ( &$render_branch, $h
 		printf( '<li class="%s"%s>', esc_attr( implode( ' ', $classes ) ), $item_attributes );
 		echo '<label>';
 		$render_input( $term );
-		echo esc_html( $term->name );
+		echo $term_label( $term ); // phpcs:ignore HM.Security.EscapeOutput.OutputNotEscaped -- Escaped in $term_label().
 		echo '</label>';
 
 		if ( $has_children && $hierarchy === 'collapsed' ) {
@@ -248,7 +301,7 @@ $group_classes = sprintf(
 				<option value="<?php echo esc_attr( $select_url( $row['term'] ) ); ?>" <?php selected( $is_selected( $row['term'] ) ); ?>><?php
 					// A select has no nesting of its own, so depth is conveyed the way
 					// WordPress's own category dropdown does it: by a dash per level.
-					echo esc_html( str_repeat( '— ', $row['depth'] ) . $row['term']->name );
+					echo esc_html( str_repeat( '— ', $row['depth'] ) ) . $term_label( $row['term'], false ); // phpcs:ignore HM.Security.EscapeOutput.OutputNotEscaped -- Escaped in $term_label().
 				?></option>
 			<?php endforeach; ?>
 		</select>
@@ -276,7 +329,7 @@ $group_classes = sprintf(
 			<?php foreach ( $terms as $term ) : ?>
 				<label>
 					<?php $render_input( $term ); ?>
-					<?php echo esc_html( $term->name ); ?>
+					<?php echo $term_label( $term ); // phpcs:ignore HM.Security.EscapeOutput.OutputNotEscaped -- Escaped in $term_label(). ?>
 				</label>
 			<?php endforeach; ?>
 		</div>
@@ -285,7 +338,7 @@ $group_classes = sprintf(
 			<?php foreach ( $tree as $index => $node ) : ?>
 				<label<?php echo $is_overflow_term( $index, $node ) ? ' class="is-overflow-term" data-wp-bind--hidden="!context.showAllTerms"' : ''; ?>>
 					<?php $render_input( $node['term'] ); ?>
-					<?php echo esc_html( $node['term']->name ); ?>
+					<?php echo $term_label( $node['term'] ); // phpcs:ignore HM.Security.EscapeOutput.OutputNotEscaped -- Escaped in $term_label(). ?>
 				</label>
 			<?php endforeach; ?>
 			<?php if ( $has_overflow ) : ?>

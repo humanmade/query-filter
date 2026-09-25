@@ -224,6 +224,131 @@ seed_post( 'Taxonomy Hierarchy Select', 'page', [
 	),
 ] );
 
+// Page 10: taxonomy filters that hide terms with no results and show counts, in a
+// loop with its own query, beside a search block to narrow it to nothing.
+seed_post( 'Term Counts', 'page', [
+	'post_name' => 'term-counts',
+	'post_content' => query_loop_markup(
+		10,
+		'<!-- wp:query-filter/taxonomy {"taxonomy":"category","displayType":"checkbox","hideEmpty":true,"showCount":true} /-->' . "\n"
+			. '<!-- wp:query-filter/taxonomy {"taxonomy":"qf_topic","displayType":"checkbox","hierarchy":"nested","hideEmpty":true,"showCount":true} /-->' . "\n"
+			. '<!-- wp:search {"buttonText":"Search"} /-->'
+	),
+] );
+
+// Pages 12 and 13: counted filters in loops that narrow their own results by taxonomy,
+// so a filter must hide the terms the loop itself rules out. Page 12 uses the core Query
+// block's own term settings, limited to Alpha.
+$counted_filters = '<!-- wp:query-filter/taxonomy {"taxonomy":"category","displayType":"checkbox","hideEmpty":true,"showCount":true} /-->' . "\n"
+	. '<!-- wp:query-filter/taxonomy {"taxonomy":"qf_topic","displayType":"checkbox","hierarchy":"nested","hideEmpty":true,"showCount":true} /-->';
+
+$loop_terms_query = wp_json_encode( [
+	'queryId' => 12,
+	'query' => [
+		'perPage' => 10,
+		'pages' => 0,
+		'offset' => 0,
+		'postType' => 'post',
+		'order' => 'asc',
+		'orderBy' => 'title',
+		'inherit' => false,
+		'taxQuery' => [ 'category' => [ get_term_by( 'slug', 'alpha', 'category' )->term_id ] ],
+	],
+] );
+
+seed_post( 'Term Counts Loop Terms', 'page', [
+	'post_name' => 'term-counts-loop-terms',
+	'post_content' => <<<HTML
+<!-- wp:query {$loop_terms_query} -->
+<div class="wp-block-query">
+{$counted_filters}
+<!-- wp:post-template -->
+<!-- wp:post-title /-->
+<!-- /wp:post-template -->
+</div>
+<!-- /wp:query -->
+HTML,
+] );
+
+// Page 13: an Advanced Query Loop, whose tax query combines conditions on two taxonomies
+// with AND and names its terms: not in Beta, and filed under SD-WAN.
+$aql_query = wp_json_encode( [
+	'queryId' => 13,
+	'namespace' => 'advanced-query-loop',
+	'query' => [
+		'perPage' => 10,
+		'pages' => 0,
+		'offset' => 0,
+		'postType' => 'post',
+		'order' => 'asc',
+		'orderBy' => 'title',
+		'inherit' => false,
+		'tax_query' => [
+			'relation' => 'AND',
+			'queries' => [
+				[ 'id' => 'not-beta', 'taxonomy' => 'category', 'terms' => [ 'Beta' ], 'operator' => 'NOT IN', 'include_children' => 'true' ],
+				[ 'id' => 'sd-wan', 'taxonomy' => 'qf_topic', 'terms' => [ 'SD-WAN' ], 'operator' => 'IN', 'include_children' => 'true' ],
+			],
+		],
+	],
+] );
+
+seed_post( 'Term Counts AQL', 'page', [
+	'post_name' => 'term-counts-aql',
+	'post_content' => <<<HTML
+<!-- wp:query {$aql_query} -->
+<div class="wp-block-query">
+{$counted_filters}
+<!-- wp:post-template -->
+<!-- wp:post-title /-->
+<!-- /wp:post-template -->
+</div>
+<!-- /wp:query -->
+HTML,
+] );
+
+// Page 14: counted shelves over books, two of them private. A signed-in admin can read
+// those and a visitor cannot, so each must see counts of their own.
+// A hundred empty shelves sort ahead of the real ones. A term lookup capped at a hundred
+// by name would return only these, so the counted terms must be looked up by ID.
+for ( $aisle = 1; $aisle <= 100; $aisle++ ) {
+	wp_insert_term( sprintf( 'Aisle %03d', $aisle ), 'qf_shelf' );
+}
+
+wp_insert_term( 'Fiction', 'qf_shelf', [ 'slug' => 'fiction' ] );
+wp_insert_term( 'Poetry', 'qf_shelf', [ 'slug' => 'poetry' ] );
+
+wp_set_object_terms( seed_post( 'Book One', 'qf_book' ), [ 'fiction' ], 'qf_shelf' );
+wp_set_object_terms( seed_post( 'Book Two', 'qf_book', [ 'post_status' => 'private' ] ), [ 'fiction' ], 'qf_shelf' );
+wp_set_object_terms( seed_post( 'Book Three', 'qf_book', [ 'post_status' => 'private' ] ), [ 'poetry' ], 'qf_shelf' );
+
+$private_query = wp_json_encode( [
+	'queryId' => 14,
+	'query' => [
+		'perPage' => 10,
+		'pages' => 0,
+		'offset' => 0,
+		'postType' => 'qf_book',
+		'order' => 'asc',
+		'orderBy' => 'title',
+		'inherit' => false,
+	],
+] );
+
+seed_post( 'Term Counts Private', 'page', [
+	'post_name' => 'term-counts-private',
+	'post_content' => <<<HTML
+<!-- wp:query {$private_query} -->
+<div class="wp-block-query">
+<!-- wp:query-filter/taxonomy {"taxonomy":"qf_shelf","displayType":"checkbox","hideEmpty":true,"showCount":true} /-->
+<!-- wp:post-template -->
+<!-- wp:post-title /-->
+<!-- /wp:post-template -->
+</div>
+<!-- /wp:query -->
+HTML,
+] );
+
 update_option( 'query_filter_e2e_seeded', 1 );
 
 echo "Seeded query filter e2e fixtures.\n";

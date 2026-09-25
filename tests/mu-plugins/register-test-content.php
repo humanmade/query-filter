@@ -13,6 +13,7 @@ namespace HM\Query_Loop_Filter\Tests;
 
 add_action( 'init', __NAMESPACE__ . '\\register_test_content' );
 add_filter( 'get_block_templates', __NAMESPACE__ . '\\replace_search_template', 10, 2 );
+add_filter( 'get_block_templates', __NAMESPACE__ . '\\replace_archive_template', 10, 2 );
 
 /**
  * Register the test post types and taxonomies.
@@ -47,6 +48,25 @@ function register_test_content() : void {
 		'publicly_queryable' => true,
 		'show_in_rest' => true,
 		'hierarchical' => true,
+	] );
+
+	// A post type with private posts, for term counts that differ between a signed-in
+	// user and a visitor. Kept out of search, and so out of every other spec's loops.
+	register_post_type( 'qf_book', [
+		'label' => 'Books',
+		'public' => true,
+		'publicly_queryable' => true,
+		'exclude_from_search' => true,
+		'show_in_rest' => true,
+		'supports' => [ 'title', 'editor' ],
+	] );
+
+	register_taxonomy( 'qf_shelf', [ 'qf_book' ], [
+		'label' => 'Shelves',
+		'public' => true,
+		'publicly_queryable' => true,
+		'show_in_rest' => true,
+		'hierarchical' => false,
 	] );
 
 	// Private taxonomy, for the same reason.
@@ -138,6 +158,41 @@ function replace_search_template( array $templates, array $query ) : array {
 			'<!-- wp:query {"queryId":6,"query":{"perPage":10,"pages":0,"offset":0,"postType":"post","order":"asc","orderBy":"title","inherit":true}} -->',
 			'<div class="wp-block-query">',
 			'<!-- wp:search {"buttonText":"Search"} /-->',
+			'<!-- wp:post-template --><!-- wp:post-title /--><!-- /wp:post-template -->',
+			'</div>',
+			'<!-- /wp:query -->',
+		] );
+	}
+
+	return $templates;
+}
+
+/**
+ * Put a counted taxonomy filter in an inheriting query loop on the archive template.
+ *
+ * Term counts for an inherited loop are taken within the main query as it ran, which
+ * WordPress amends once it has: it writes the first term it queried back into the query
+ * vars. A category archive filtered by topic is where that write-back would narrow the
+ * counts to the selected topic, so the tests need a template that has it.
+ *
+ * @param \WP_Block_Template[] $templates Templates matching the query.
+ * @param array               $query     Arguments the templates were queried with.
+ * @return \WP_Block_Template[] Templates, with the archive template rewritten.
+ */
+function replace_archive_template( array $templates, array $query ) : array {
+	if ( ! in_array( 'archive', (array) ( $query['slug__in'] ?? [] ), true ) ) {
+		return $templates;
+	}
+
+	foreach ( $templates as $template ) {
+		if ( $template->slug !== 'archive' ) {
+			continue;
+		}
+
+		$template->content = implode( '', [
+			'<!-- wp:query {"queryId":11,"query":{"perPage":10,"pages":0,"offset":0,"postType":"post","order":"asc","orderBy":"title","inherit":true}} -->',
+			'<div class="wp-block-query">',
+			'<!-- wp:query-filter/taxonomy {"taxonomy":"qf_topic","displayType":"checkbox","hierarchy":"nested","hideEmpty":true,"showCount":true} /-->',
 			'<!-- wp:post-template --><!-- wp:post-title /--><!-- /wp:post-template -->',
 			'</div>',
 			'<!-- /wp:query -->',
