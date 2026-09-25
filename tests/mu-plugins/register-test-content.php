@@ -50,6 +50,25 @@ function register_test_content() : void {
 		'hierarchical' => true,
 	] );
 
+	// A post type with private posts, for term counts that differ between a signed-in
+	// user and a visitor. Kept out of search, and so out of every other spec's loops.
+	register_post_type( 'qf_book', [
+		'label' => 'Books',
+		'public' => true,
+		'publicly_queryable' => true,
+		'exclude_from_search' => true,
+		'show_in_rest' => true,
+		'supports' => [ 'title', 'editor' ],
+	] );
+
+	register_taxonomy( 'qf_shelf', [ 'qf_book' ], [
+		'label' => 'Shelves',
+		'public' => true,
+		'publicly_queryable' => true,
+		'show_in_rest' => true,
+		'hierarchical' => false,
+	] );
+
 	// Private taxonomy, for the same reason.
 	register_taxonomy( 'qf_hidden', [ 'post' ], [
 		'label' => 'Hidden',

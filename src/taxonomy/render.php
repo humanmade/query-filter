@@ -33,12 +33,6 @@ if ( empty( $block->context['query']['inherit'] ) ) {
 	$base_url = str_replace( '/page/' . get_query_var( 'paged' ), '', remove_query_arg( [ $query_var, $page_var ] ) );
 }
 
-$terms = \HM\Query_Loop_Filter\get_filter_terms( $attributes );
-
-if ( empty( $terms ) ) {
-	return;
-}
-
 // Non-ASCII term slugs are stored URL-encoded (e.g. "%e6%97%a5"), but arrive from $_GET
 // predecoded to raw UTF-8. Normalize the current filter value to the same form used in
 // pre_get_posts_transpose_query_vars() to compare directly against urldecode($term->slug).
@@ -53,24 +47,36 @@ $counts = $show_count || ! empty( $attributes['hideEmpty'] )
 	? \HM\Query_Loop_Filter\get_filter_term_counts( $block, $taxonomy->name )
 	: null;
 
-// A term with nothing to show in the current query is left out, unless the visitor has
-// selected it, so the control can always undo its own state. Counts include descendants,
-// so a parent stays whenever any of its children does.
-// Without counts for the query, the stored term counts stand in, as they would have had
-// the terms been fetched without their empty ones.
-if ( ! empty( $attributes['hideEmpty'] ) ) {
-	$has_results = is_array( $counts )
-		? fn ( WP_Term $term ) => ( $counts[ $term->term_id ] ?? 0 ) > 0
-		: fn ( WP_Term $term ) => $term->count > 0;
+// A filter hiding empty terms offers the terms that have results in the current query,
+// looked up by ID, along with any the visitor has selected, so the control can always
+// undo its own state. Counts include descendants, so a parent stays whenever any of its
+// children does. Without counts, the terms are found as they otherwise would be.
+$term_ids = null;
 
+if ( is_array( $counts ) && ! empty( $attributes['hideEmpty'] ) ) {
+	$term_ids = array_keys( array_filter( $counts ) );
+
+	foreach ( $selected_terms as $slug ) {
+		$selected = get_term_by( 'slug', $slug, $taxonomy->name );
+
+		if ( $selected instanceof WP_Term ) {
+			$term_ids[] = $selected->term_id;
+		}
+	}
+}
+
+$terms = \HM\Query_Loop_Filter\get_filter_terms( $attributes, $term_ids );
+
+// A curated list is looked up by slug, in its own order, so its empty terms go here.
+if ( is_array( $term_ids ) ) {
 	$terms = array_values( array_filter(
 		$terms,
-		fn ( WP_Term $term ) => $has_results( $term ) || in_array( urldecode( $term->slug ), $selected_terms, true )
+		fn ( WP_Term $term ) => in_array( $term->term_id, $term_ids, true )
 	) );
+}
 
-	if ( empty( $terms ) ) {
-		return;
-	}
+if ( empty( $terms ) ) {
+	return;
 }
 
 /**

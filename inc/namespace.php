@@ -207,10 +207,12 @@ function pre_get_posts_transpose_query_vars( WP_Query $query ) : void {
  * Terms are addressed by slug rather than ID so that curated lists stay
  * readable and reviewable in pattern markup.
  *
- * @param array $attributes Taxonomy filter block attributes.
+ * @param array      $attributes Taxonomy filter block attributes.
+ * @param int[]|null $term_ids   In derived mode, the only terms to consider: those with
+ *                               results in the filter's query. Null to consider all.
  * @return \WP_Term[] Terms to render, in display order.
  */
-function get_filter_terms( array $attributes ) : array {
+function get_filter_terms( array $attributes, ?array $term_ids = null ) : array {
 	$include = array_filter( (array) ( $attributes['includeTerms'] ?? [] ) );
 	$exclude = array_filter( (array) ( $attributes['excludeTerms'] ?? [] ) );
 
@@ -219,12 +221,21 @@ function get_filter_terms( array $attributes ) : array {
 		? array_values( array_unique( array_merge( $include, array_map( 'rawurlencode', $include ) ) ) )
 		: '';
 
+	// In derived mode a filter can be limited to terms already known to have results in
+	// its query, which then decides emptiness itself: the stored counts can lag behind
+	// the posts, and looking the terms up by ID keeps the lookup's cap from dropping any
+	// of them in favour of empty ones earlier in the alphabet.
+	$by_id = empty( $include ) && null !== $term_ids;
+
+	if ( $by_id && empty( $term_ids ) ) {
+		return [];
+	}
+
 	$terms = get_terms( [
 		'taxonomy' => $attributes['taxonomy'],
-		// A filter hiding terms with no results in its query decides emptiness from its
-		// own counts, so the stored counts, which can lag behind the posts, have no say.
-		'hide_empty' => empty( $include ) && empty( $attributes['hideEmpty'] ),
+		'hide_empty' => empty( $include ) && ! $by_id,
 		'slug' => $include_slugs,
+		'include' => $by_id ? array_map( 'intval', $term_ids ) : [],
 		'number' => 100,
 	] );
 
@@ -272,8 +283,10 @@ function get_clause_key( string $taxonomy ) : string {
  * already made. A parent term counts its descendants' posts too, as selecting it would.
  *
  * Counts are cached against the query and the site's last content change, so an edit to
- * any post or term makes them stale at once. The `query_filter_term_counts` filter can
- * supply them from elsewhere, such as a search index's aggregations.
+ * any post or term makes them stale at once. Only anonymous visitors share them: results,
+ * and so counts, can include private posts for a signed-in user, who may read them, and
+ * their own. The `query_filter_term_counts` filter can supply counts from elsewhere, such
+ * as a search index's aggregations.
  *
  * @param \WP_Block $block    Taxonomy filter block, carrying its query context.
  * @param string    $taxonomy Taxonomy name.
@@ -300,6 +313,10 @@ function get_filter_term_counts( \WP_Block $block, string $taxonomy ) : ?array {
 
 	if ( is_array( $counts ) ) {
 		return array_map( 'intval', $counts );
+	}
+
+	if ( is_user_logged_in() ) {
+		return count_terms_in_query( $query_vars, $taxonomy );
 	}
 
 	$cache_key = sprintf(

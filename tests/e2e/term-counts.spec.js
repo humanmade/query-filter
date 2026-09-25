@@ -10,7 +10,11 @@ const { test, expect, POSTS } = require( './fixtures' );
 /**
  * The filters on the fixture pages, by the label each shows: the taxonomy's name.
  */
-const FILTER_LABELS = { category: 'Categories', qf_topic: 'Topics' };
+const FILTER_LABELS = {
+	category: 'Categories',
+	qf_topic: 'Topics',
+	qf_shelf: 'Shelves',
+};
 
 /**
  * The term labels a filter renders, in order, as their visible text.
@@ -152,5 +156,87 @@ test.describe( 'Taxonomy filter term counts', () => {
 		const html = await page.content();
 		expect( html ).toContain( 'qf-php-errors-checked' );
 		expect( html ).not.toContain( 'qf-php-error:' );
+	} );
+
+	test( "terms the loop's own settings rule out are hidden", async ( { page, loop } ) => {
+		// The core Query block is limited to the Alpha category.
+		await page.goto( '/term-counts-loop-terms/' );
+		await loop.expectTitles( POSTS.alpha );
+
+		expect( await termLabels( page, 'category' ) ).toEqual( [ 'Alpha (2)' ] );
+
+		// Cloud is only on Beta One, which the loop leaves out.
+		expect( await termLabels( page, 'qf_topic' ) ).toEqual( [
+			'Networking (2)',
+			'SASE (1)',
+			'SD-WAN (1)',
+		] );
+	} );
+
+	test( 'an Advanced Query Loop tax query narrows the counts', async ( {
+		page,
+		loop,
+	} ) => {
+		// Not in Beta, and filed under SD-WAN: two conditions on two taxonomies, joined
+		// with AND, which leaves only Alpha One.
+		await page.goto( '/term-counts-aql/' );
+		await loop.expectTitles( [ 'Alpha One' ] );
+
+		expect( await termLabels( page, 'category' ) ).toEqual( [ 'Alpha (1)' ] );
+		expect( await termLabels( page, 'qf_topic' ) ).toEqual( [
+			'Networking (1)',
+			'SD-WAN (1)',
+		] );
+	} );
+
+	test( 'a signed-in user and a visitor each see their own counts', async ( {
+		page,
+		browser,
+		baseURL,
+		loop,
+	} ) => {
+		// Signed in as an admin, the loop includes the two private books, and so do the
+		// counts. These are never cached, so they cannot reach a visitor. The shelves
+		// also hold a hundred empty aisles that sort first, which are left out.
+		await page.goto( '/term-counts-private/' );
+		// WordPress marks the private titles for the users who can see them.
+		await loop.expectTitles( [ 'Book One', 'Private: Book Three', 'Private: Book Two' ] );
+		expect( await termLabels( page, 'qf_shelf' ) ).toEqual( [
+			'Fiction (2)',
+			'Poetry (1)',
+		] );
+
+		// A visitor sees only the published book. The second visit is served from the
+		// count cache the first one filled.
+		// Playground signs in any request that has not already been through its automatic
+		// login, so a visitor carries the cookie that marks it done, and no session.
+		const context = await browser.newContext( {
+			storageState: { cookies: [], origins: [] },
+		} );
+		await context.addCookies( [
+			{
+				name: 'playground_auto_login_already_happened',
+				value: '1',
+				url: baseURL,
+			},
+		] );
+		const visitor = await context.newPage();
+
+		for ( let visit = 0; visit < 2; visit++ ) {
+			await visitor.goto( '/term-counts-private/' );
+			await expect(
+				visitor.locator( '.wp-block-post-template .wp-block-post-title' )
+			).toHaveText( [ 'Book One' ] );
+			expect( await termLabels( visitor, 'qf_shelf' ) ).toEqual( [ 'Fiction (1)' ] );
+		}
+
+		await context.close();
+
+		// And the visitor's cached counts do not reach the admin.
+		await page.reload();
+		expect( await termLabels( page, 'qf_shelf' ) ).toEqual( [
+			'Fiction (2)',
+			'Poetry (1)',
+		] );
 	} );
 } );

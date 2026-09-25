@@ -29,7 +29,7 @@ The taxonomy filter's **Terms** panel has two options, both off by default:
 
 Counts follow the way the filters combine. Filters on different taxonomies narrow each other, so a term's count reflects every other active filter. Terms selected within the same taxonomy match any of them, so a taxonomy's own selection is left out of its counts: a count shows how many results selecting that term would add, not how many it shares with the terms already selected. A parent term's count includes posts in its descendants, as selecting it does.
 
-Counts are calculated with one query for the matching post IDs and one for their terms, and cached in the object cache against the query and the site's last post and term changes, so any edit invalidates them. To supply counts from elsewhere, such as a search index's aggregations, return them from the `query_filter_term_counts` filter:
+Counts are calculated with one query for the matching post IDs and one for their terms, and cached in the object cache against the query and the site's last post and term changes, so any edit invalidates them. Only anonymous visitors share cached counts: a signed-in user's results can include private posts they are allowed to read, so their counts are calculated for them each time. To supply counts from elsewhere, such as a search index's aggregations, return them from the `query_filter_term_counts` filter:
 
 ```php
 /**
