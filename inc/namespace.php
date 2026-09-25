@@ -342,7 +342,8 @@ function get_filter_term_counts( \WP_Block $block, string $taxonomy ) : ?array {
  * For an inherited loop that is the main query as it ran, with the filter's own clause
  * taken out of its tax query. For a loop of its own, it is the loop's query rebuilt from
  * the block context, which the filters are applied to again as it runs, less this one.
- * Either way only post IDs are fetched, all of them, unordered and uncached.
+ * Either way it selects the IDs of every matching post, unordered: it becomes a subquery
+ * of the count, and is not run on its own.
  *
  * @param \WP_Block $block    Taxonomy filter block, carrying its query context.
  * @param string    $taxonomy Taxonomy name.
@@ -418,8 +419,11 @@ function remove_tax_clause( array $tax_query, string $key ) : array {
 /**
  * Count the posts a query returns for each term of a taxonomy.
  *
- * One query fetches the term assignments of every matching post; the tally is made here,
- * so a post is counted once under each term and each of that term's ancestors.
+ * The query is never run as such: its SQL is nested in a grouped count, so however many
+ * posts match, none of their IDs come back to PHP, and the database returns one row per
+ * term. A parent's count is of the distinct posts across its whole branch, which cannot
+ * be summed from its children's, so a hierarchical taxonomy's parents are counted in a
+ * second query against a map of the branches beneath them.
  *
  * @param array  $query_vars Query to count within.
  * @param string $taxonomy   Taxonomy name.
@@ -428,40 +432,100 @@ function remove_tax_clause( array $tax_query, string $key ) : array {
 function count_terms_in_query( array $query_vars, string $taxonomy ) : array {
 	global $wpdb;
 
-	$post_ids = array_map( 'intval', ( new WP_Query( $query_vars ) )->posts );
+	$posts_sql = get_query_sql( $query_vars );
 
-	if ( empty( $post_ids ) ) {
+	if ( '' === $posts_sql ) {
 		return [];
 	}
 
-	$assignments = [];
+	// Only the taxonomy is prepared: the posts subquery was assembled and escaped by
+	// WP_Query, and preparing it again would mangle the escaped patterns of a search.
+	$where = $wpdb->prepare( 'WHERE tt.taxonomy = %s AND tr.object_id IN ( ', $taxonomy ) . $posts_sql . ' )';
+	$assigned = "{$wpdb->term_relationships} tr INNER JOIN {$wpdb->term_taxonomy} tt ON tt.term_taxonomy_id = tr.term_taxonomy_id";
 
-	foreach ( array_chunk( $post_ids, 1000 ) as $chunk ) {
-		$placeholders = implode( ',', array_fill( 0, count( $chunk ), '%d' ) );
+	// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery -- Prepared above; the tally is cached by the caller.
+	$rows = $wpdb->get_results( "SELECT tt.term_id, COUNT( DISTINCT tr.object_id ) AS posts FROM {$assigned} {$where} GROUP BY tt.term_id" );
 
-		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.DirectDatabaseQuery -- One placeholder per ID, built above; the tally is cached by the caller.
-		$rows = $wpdb->get_results( $wpdb->prepare( "SELECT tr.object_id, tt.term_id FROM {$wpdb->term_relationships} tr INNER JOIN {$wpdb->term_taxonomy} tt ON tt.term_taxonomy_id = tr.term_taxonomy_id WHERE tt.taxonomy = %s AND tr.object_id IN ( {$placeholders} )", $taxonomy, ...$chunk ), ARRAY_N );
+	$counts = [];
 
-		$assignments = array_merge( $assignments, $rows );
+	foreach ( $rows as $row ) {
+		$counts[ (int) $row->term_id ] = (int) $row->posts;
 	}
 
-	$hierarchical = is_taxonomy_hierarchical( $taxonomy );
-	$ancestors = [];
-	$posts_by_term = [];
+	$branches = get_term_branches( $taxonomy );
 
-	foreach ( $assignments as [ $post_id, $term_id ] ) {
-		$term_id = (int) $term_id;
+	if ( empty( $counts ) || empty( $branches ) ) {
+		return $counts;
+	}
 
-		if ( $hierarchical && ! isset( $ancestors[ $term_id ] ) ) {
-			$ancestors[ $term_id ] = get_ancestors( $term_id, $taxonomy, 'taxonomy' );
-		}
+	$map = implode( ' UNION ALL ', array_map(
+		fn ( array $pair ) => sprintf( 'SELECT %d AS ancestor_id, %d AS term_id', $pair[0], $pair[1] ),
+		$branches
+	) );
 
-		foreach ( array_merge( [ $term_id ], $ancestors[ $term_id ] ?? [] ) as $counted_id ) {
-			$posts_by_term[ $counted_id ][ (int) $post_id ] = true;
+	// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery -- The map is built from integers; the rest is prepared above.
+	$rows = $wpdb->get_results( "SELECT branch.ancestor_id, COUNT( DISTINCT tr.object_id ) AS posts FROM {$assigned} INNER JOIN ( {$map} ) AS branch ON branch.term_id = tt.term_id {$where} GROUP BY branch.ancestor_id" );
+
+	foreach ( $rows as $row ) {
+		$counts[ (int) $row->ancestor_id ] = (int) $row->posts;
+	}
+
+	return $counts;
+}
+
+/**
+ * Build the SQL a query would run, without running it.
+ *
+ * The query goes through WP_Query as any other would, so every filter on its vars and
+ * clauses applies, and is stopped just before it reaches the database.
+ *
+ * @param array $query_vars Query vars.
+ * @return string SQL selecting the matching post IDs, or an empty string.
+ */
+function get_query_sql( array $query_vars ) : string {
+	$query = new WP_Query();
+
+	$short_circuit = fn ( $posts, WP_Query $running ) => $running === $query ? [] : $posts;
+
+	add_filter( 'posts_pre_query', $short_circuit, PHP_INT_MAX, 2 );
+	$query->query( $query_vars );
+	remove_filter( 'posts_pre_query', $short_circuit, PHP_INT_MAX );
+
+	return (string) $query->request;
+}
+
+/**
+ * Pair each parent term with every term in its branch, itself included.
+ *
+ * @param string $taxonomy Taxonomy name.
+ * @return int[][] Pairs of `[ ancestor term ID, term ID ]`; empty for a flat taxonomy.
+ */
+function get_term_branches( string $taxonomy ) : array {
+	if ( ! is_taxonomy_hierarchical( $taxonomy ) ) {
+		return [];
+	}
+
+	$parents = get_terms( [
+		'taxonomy' => $taxonomy,
+		'hide_empty' => false,
+		'fields' => 'id=>parent',
+	] );
+
+	if ( is_wp_error( $parents ) ) {
+		return [];
+	}
+
+	$pairs = [];
+
+	foreach ( array_unique( array_filter( array_map( 'intval', $parents ) ) ) as $ancestor_id ) {
+		$descendants = get_term_children( $ancestor_id, $taxonomy );
+
+		foreach ( array_merge( [ $ancestor_id ], is_wp_error( $descendants ) ? [] : $descendants ) as $term_id ) {
+			$pairs[] = [ $ancestor_id, (int) $term_id ];
 		}
 	}
 
-	return array_map( 'count', $posts_by_term );
+	return $pairs;
 }
 
 /**
