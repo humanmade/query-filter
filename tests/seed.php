@@ -224,6 +224,18 @@ seed_post( 'Taxonomy Hierarchy Select', 'page', [
 	),
 ] );
 
+// Page 10: taxonomy filters that hide terms with no results and show counts, in a
+// loop with its own query, beside a search block to narrow it to nothing.
+seed_post( 'Term Counts', 'page', [
+	'post_name' => 'term-counts',
+	'post_content' => query_loop_markup(
+		10,
+		'<!-- wp:query-filter/taxonomy {"taxonomy":"category","displayType":"checkbox","hideEmpty":true,"showCount":true} /-->' . "\n"
+			. '<!-- wp:query-filter/taxonomy {"taxonomy":"qf_topic","displayType":"checkbox","hierarchy":"nested","hideEmpty":true,"showCount":true} /-->' . "\n"
+			. '<!-- wp:search {"buttonText":"Search"} /-->'
+	),
+] );
+
 update_option( 'query_filter_e2e_seeded', 1 );
 
 echo "Seeded query filter e2e fixtures.\n";

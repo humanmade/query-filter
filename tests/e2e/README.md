@@ -37,6 +37,9 @@ run and `npm run playground:start`:
    rendered cleanly without depending on `display_errors`, and rewrites the
    theme's search results template to put a search block inside the inheriting
    query loop, the one arrangement in which the blocks see an inherited query.
+   It rewrites the archive template the same way, with a `qf_topic` filter
+   showing counts (query ID 11), so a category archive exercises term counts
+   in an inherited query.
 5. Runs `tests/seed.php`, which creates the fixture terms, posts and the demo
    pages the specs visit.
 
@@ -54,6 +57,7 @@ Seeding is idempotent, guarded by the `query_filter_e2e_seeded` option.
 | `/taxonomy-hierarchy/` | 7 | Taxonomy filter (checkboxes, `hierarchy: nested`) over `qf_topic` |
 | `/taxonomy-hierarchy-collapsed/` | 8 | Taxonomy filter (checkboxes, `hierarchy: collapsed`) over `qf_topic` |
 | `/taxonomy-hierarchy-select/` | 9 | Taxonomy filter (select, `hierarchy: nested`) over `qf_topic` |
+| `/term-counts/` | 10 | Category and `qf_topic` filters (checkboxes, `hideEmpty` and `showCount`) and a core search block |
 
 Posts: `Alpha One` and `Alpha Two` in the `alpha` category, `Beta One` in
 `beta`, and `Unfiled Post` in neither — so an active filter is always
