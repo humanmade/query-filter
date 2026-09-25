@@ -82,6 +82,14 @@
 			"type": "number",
 			"default": 0
 		},
+		"hideEmpty": {
+			"type": "boolean",
+			"default": false
+		},
+		"showCount": {
+			"type": "boolean",
+			"default": false
+		},
 		"showAllLabel": {
 			"type": "string",
 			"default": ""
