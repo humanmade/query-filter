@@ -69,6 +69,18 @@ wp_set_object_terms( $beta_one, [ 'beta' ], 'category' );
 // leaves Uncategorized empty so it stays out of the filter's derived term list.
 wp_set_object_terms( $unfiled, [], 'category' );
 
+// Hierarchical topics. "Networking" has no posts of its own; only its children
+// do, so it proves a parent is kept for its descendants and that selecting it
+// matches the posts beneath it. "Cloud" is a root with no children.
+$networking = wp_insert_term( 'Networking', 'qf_topic', [ 'slug' => 'networking' ] );
+wp_insert_term( 'SD-WAN', 'qf_topic', [ 'slug' => 'sd-wan', 'parent' => $networking['term_id'] ] );
+wp_insert_term( 'SASE', 'qf_topic', [ 'slug' => 'sase', 'parent' => $networking['term_id'] ] );
+wp_insert_term( 'Cloud', 'qf_topic', [ 'slug' => 'cloud' ] );
+
+wp_set_object_terms( $alpha_one, [ 'sd-wan' ], 'qf_topic' );
+wp_set_object_terms( $alpha_two, [ 'sase' ], 'qf_topic' );
+wp_set_object_terms( $beta_one, [ 'cloud' ], 'qf_topic' );
+
 // Private taxonomy term on a post that is otherwise public, so a query string
 // filter naming it would visibly narrow the results if it were honoured.
 wp_insert_term( 'Classified', 'qf_hidden', [ 'slug' => 'classified' ] );
@@ -192,23 +204,30 @@ seed_post( 'Search Pagination', 'page', [
 HTML,
 ] );
 
-// Page 6: taxonomy terms must be scoped to the custom post type queried here.
-seed_post( 'Post Type Taxonomy Filter', 'page', [
-	'post_name' => 'post-type-taxonomy-filter',
+// Page 7: nested checkboxes over a hierarchical taxonomy.
+seed_post( 'Taxonomy Hierarchy', 'page', [
+	'post_name' => 'taxonomy-hierarchy',
 	'post_content' => query_loop_markup(
 		7,
-		'<!-- wp:query-filter/taxonomy {"taxonomy":"qf_topic","filterByPostType":true} /-->',
-		'qf_doc'
+		'<!-- wp:query-filter/taxonomy {"taxonomy":"qf_topic","displayType":"checkbox","hierarchy":"nested"} /-->'
 	),
 ] );
 
-// Page 7: the option defaults off so existing blocks keep global term counts.
-seed_post( 'Global Taxonomy Filter', 'page', [
-	'post_name' => 'global-taxonomy-filter',
+// Page 8: the same, with child terms collapsed behind a toggle.
+seed_post( 'Taxonomy Hierarchy Collapsed', 'page', [
+	'post_name' => 'taxonomy-hierarchy-collapsed',
 	'post_content' => query_loop_markup(
 		8,
-		'<!-- wp:query-filter/taxonomy {"taxonomy":"qf_topic"} /-->',
-		'qf_doc'
+		'<!-- wp:query-filter/taxonomy {"taxonomy":"qf_topic","displayType":"checkbox","hierarchy":"collapsed"} /-->'
+	),
+] );
+
+// Page 9: a nested select, where depth can only be shown by indentation.
+seed_post( 'Taxonomy Hierarchy Select', 'page', [
+	'post_name' => 'taxonomy-hierarchy-select',
+	'post_content' => query_loop_markup(
+		9,
+		'<!-- wp:query-filter/taxonomy {"taxonomy":"qf_topic","hierarchy":"nested"} /-->'
 	),
 ] );
 

@@ -37,3 +37,71 @@
 	flex-wrap: wrap;
 	gap: 1rem;
 }
+
+/* The display rules above outrank the browser's own [hidden] styling, so the
+   interactivity bindings that hide overflow terms and collapsed branches need
+   an explicit rule to take effect. */
+.wp-block-query-filter [hidden] {
+	display: none;
+}
+
+/* Hierarchical term lists (nested and collapsed modes) */
+.wp-block-query-filter__term-list {
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.wp-block-query-filter__term-list[data-depth]:not([data-depth="0"]) {
+	margin-top: 0.5rem;
+	padding-left: 1.5rem;
+}
+
+.wp-block-query-filter__term {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+}
+
+.wp-block-query-filter__term > .wp-block-query-filter__term-list {
+	flex-basis: 100%;
+}
+
+.wp-block-query-filter__toggle-children {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 1.5rem;
+	height: 1.5rem;
+	margin-left: auto;
+	padding: 0;
+	border: 0;
+	background: none;
+	color: inherit;
+	cursor: pointer;
+}
+
+.wp-block-query-filter__toggle-children::before {
+	content: "";
+	width: 0.5em;
+	height: 0.5em;
+	border-right: 2px solid currentColor;
+	border-bottom: 2px solid currentColor;
+	transform: translateY(-25%) rotate(45deg);
+	transition: transform 0.15s ease;
+}
+
+.wp-block-query-filter__toggle-children[aria-expanded="true"]::before {
+	transform: translateY(25%) rotate(-135deg);
+}
+
+/* Horizontal layout keeps top level branches on one row */
+.wp-block-query-filter__radio-group.horizontal > .wp-block-query-filter__term-list[data-depth="0"],
+.wp-block-query-filter__checkbox-group.horizontal > .wp-block-query-filter__term-list[data-depth="0"] {
+	flex-direction: row;
+	flex-wrap: wrap;
+	gap: 1rem;
+}

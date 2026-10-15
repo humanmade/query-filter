@@ -53,6 +53,9 @@ Seeding is idempotent, guarded by the `query_filter_e2e_seeded` option.
 | `/search-pagination/` | 5 | Core search block and pagination, two posts to a page |
 | `/post-type-taxonomy-filter/` | 7 | Taxonomy filter scoped to terms assigned to the loop's `qf_doc` post type |
 | `/global-taxonomy-filter/` | 8 | Taxonomy filter using the default global term counts |
+| `/taxonomy-hierarchy/` | 7 | Taxonomy filter (checkboxes, `hierarchy: nested`) over `qf_topic` |
+| `/taxonomy-hierarchy-collapsed/` | 8 | Taxonomy filter (checkboxes, `hierarchy: collapsed`) over `qf_topic` |
+| `/taxonomy-hierarchy-select/` | 9 | Taxonomy filter (select, `hierarchy: nested`) over `qf_topic` |
 
 Posts: `Alpha One` and `Alpha Two` in the `alpha` category, `Beta One` in
 `beta`, and `Unfiled Post` in neither — so an active filter is always
@@ -60,6 +63,11 @@ distinguishable from no filter. `Doc One` and `Doc Two` are in the public
 `qf_doc` post type. The shared `qf_topic` taxonomy has a `Posts Only` term on a
 post and a `Docs Only` term on a document. `Secret One` is published in the
 private `qf_secret` post type and must never appear on the front end.
+
+The public hierarchical `qf_topic` taxonomy holds `Networking` with children
+`SD-WAN` (Alpha One) and `SASE` (Alpha Two), and a childless `Cloud` (Beta
+One). Networking has no posts of its own, so it is only listed because its
+children have some.
 
 ## Configuration
 
