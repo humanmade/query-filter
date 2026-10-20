@@ -16,15 +16,12 @@ $layout_direction = $attributes['layoutDirection'] ?? 'vertical';
 // rather than warning about an undefined index.
 $inherit = ! empty( $block->context['query']['inherit'] );
 
+$query_var = \HM\Query_Loop_Filter\get_query_param( 'post_type', $block->context );
+$page_var = \HM\Query_Loop_Filter\get_query_param( 'page', $block->context );
+$base_url = remove_query_arg( [ $query_var, $page_var ] );
+
 if ( $inherit ) {
-	$query_var = 'query-post_type';
-	$page_var = 'page';
-	$base_url = str_replace( '/page/' . get_query_var( 'paged' ), '', remove_query_arg( [ $query_var, $page_var ] ) );
-} else {
-	$query_id = $block->context['queryId'] ?? 0;
-	$query_var = sprintf( 'query-%d-post_type', $query_id );
-	$page_var = isset( $block->context['queryId'] ) ? 'query-' . $block->context['queryId'] . '-page' : 'query-page';
-	$base_url = remove_query_arg( [ $query_var, $page_var ] );
+	$base_url = str_replace( '/page/' . get_query_var( 'paged' ), '', $base_url );
 }
 
 $post_types = array_map( 'trim', explode( ',', $block->context['query']['postType'] ?? 'post' ) );
