@@ -189,25 +189,22 @@ test.describe( 'Taxonomy filter term counts', () => {
 		] );
 	} );
 
-	test( 'a signed-in user and a visitor each see their own counts', async ( {
+	test( 'counts are of published posts, shared by every visitor', async ( {
 		page,
 		browser,
 		baseURL,
 		loop,
 	} ) => {
-		// Signed in as an admin, the loop includes the two private books, and so do the
-		// counts. These are never cached, so they cannot reach a visitor. The shelves
-		// also hold a hundred empty aisles that sort first, which are left out.
+		// Signed in as an admin, the loop includes the two private books, but the counts
+		// do not: they are an anonymous visitor's, so Poetry, which holds only a private
+		// book, is left out. The shelves also hold a hundred empty aisles that sort
+		// first, which are left out too.
 		await page.goto( '/term-counts-private/' );
 		// WordPress marks the private titles for the users who can see them.
 		await loop.expectTitles( [ 'Book One', 'Private: Book Three', 'Private: Book Two' ] );
-		expect( await termLabels( page, 'qf_shelf' ) ).toEqual( [
-			'Fiction (2)',
-			'Poetry (1)',
-		] );
+		expect( await termLabels( page, 'qf_shelf' ) ).toEqual( [ 'Fiction (1)' ] );
 
-		// A visitor sees only the published book. The second visit is served from the
-		// count cache the first one filled.
+		// A visitor sees only the published book, and the same counts.
 		// Playground signs in any request that has not already been through its automatic
 		// login, so a visitor carries the cookie that marks it done, and no session.
 		const context = await browser.newContext( {
@@ -222,21 +219,21 @@ test.describe( 'Taxonomy filter term counts', () => {
 		] );
 		const visitor = await context.newPage();
 
-		for ( let visit = 0; visit < 2; visit++ ) {
-			await visitor.goto( '/term-counts-private/' );
-			await expect(
-				visitor.locator( '.wp-block-post-template .wp-block-post-title' )
-			).toHaveText( [ 'Book One' ] );
-			expect( await termLabels( visitor, 'qf_shelf' ) ).toEqual( [ 'Fiction (1)' ] );
-		}
+		await visitor.goto( '/term-counts-private/' );
+		await expect(
+			visitor.locator( '.wp-block-post-template .wp-block-post-title' )
+		).toHaveText( [ 'Book One' ] );
+		expect( await termLabels( visitor, 'qf_shelf' ) ).toEqual( [ 'Fiction (1)' ] );
 
 		await context.close();
+	} );
 
-		// And the visitor's cached counts do not reach the admin.
-		await page.reload();
-		expect( await termLabels( page, 'qf_shelf' ) ).toEqual( [
-			'Fiction (2)',
-			'Poetry (1)',
-		] );
+	test( 'counts in an inherited loop keep to its post type', async ( { page, loop } ) => {
+		// An author archive lists posts. Gadget One shares Alpha One's category and topic,
+		// but is not a post, so neither the loop nor the category counts may include it.
+		await page.goto( '/?author=1&query-qf_topic=sd-wan' );
+		await loop.expectTitles( [ 'Alpha One' ] );
+
+		expect( await termLabels( page, 'category' ) ).toEqual( [ 'Alpha (1)' ] );
 	} );
 } );

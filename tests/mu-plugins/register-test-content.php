@@ -42,12 +42,24 @@ function register_test_content() : void {
 	] );
 
 	// Public hierarchical taxonomy, for the nested and collapsed display modes.
-	register_taxonomy( 'qf_topic', [ 'post' ], [
+	register_taxonomy( 'qf_topic', [ 'post', 'qf_gadget' ], [
 		'label' => 'Topics',
 		'public' => true,
 		'publicly_queryable' => true,
 		'show_in_rest' => true,
 		'hierarchical' => true,
+	] );
+
+	// A searchable post type sharing categories and topics with posts, which an archive
+	// of posts must not count: a count query that infers its post types from the
+	// filtered taxonomies would take it in.
+	register_post_type( 'qf_gadget', [
+		'label' => 'Gadgets',
+		'public' => true,
+		'publicly_queryable' => true,
+		'show_in_rest' => true,
+		'taxonomies' => [ 'category' ],
+		'supports' => [ 'title', 'editor' ],
 	] );
 
 	// A post type with private posts, for term counts that differ between a signed-in
@@ -173,7 +185,9 @@ function replace_search_template( array $templates, array $query ) : array {
  * Term counts for an inherited loop are taken within the main query as it ran, which
  * WordPress amends once it has: it writes the first term it queried back into the query
  * vars. A category archive filtered by topic is where that write-back would narrow the
- * counts to the selected topic, so the tests need a template that has it.
+ * counts to the selected topic, and an author archive filtered by topic is where the
+ * category counts could take in other post types, so the tests need a template that
+ * has both filters.
  *
  * @param \WP_Block_Template[] $templates Templates matching the query.
  * @param array               $query     Arguments the templates were queried with.
@@ -193,6 +207,7 @@ function replace_archive_template( array $templates, array $query ) : array {
 			'<!-- wp:query {"queryId":11,"query":{"perPage":10,"pages":0,"offset":0,"postType":"post","order":"asc","orderBy":"title","inherit":true}} -->',
 			'<div class="wp-block-query">',
 			'<!-- wp:query-filter/taxonomy {"taxonomy":"qf_topic","displayType":"checkbox","hierarchy":"nested","hideEmpty":true,"showCount":true} /-->',
+			'<!-- wp:query-filter/taxonomy {"taxonomy":"category","displayType":"checkbox","hideEmpty":true,"showCount":true} /-->',
 			'<!-- wp:post-template --><!-- wp:post-title /--><!-- /wp:post-template -->',
 			'</div>',
 			'<!-- /wp:query -->',

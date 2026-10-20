@@ -307,6 +307,12 @@ seed_post( 'Term Counts AQL', 'page', [
 HTML,
 ] );
 
+// A gadget filed like Alpha One. Only the author archive test looks for it: archives of
+// posts must leave it out of their results and their counts alike.
+$gadget = seed_post( 'Gadget One', 'qf_gadget' );
+wp_set_object_terms( $gadget, [ 'alpha' ], 'category' );
+wp_set_object_terms( $gadget, [ 'sd-wan' ], 'qf_topic' );
+
 // Page 14: counted shelves over books, two of them private. A signed-in admin can read
 // those and a visitor cannot, so each must see counts of their own.
 // A hundred empty shelves sort ahead of the real ones. A term lookup capped at a hundred

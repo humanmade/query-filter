@@ -54,7 +54,11 @@ $counts = $show_count || ! empty( $attributes['hideEmpty'] )
 $term_ids = null;
 
 if ( is_array( $counts ) && ! empty( $attributes['hideEmpty'] ) ) {
-	$term_ids = array_keys( array_filter( $counts ) );
+	// The lookup returns at most 100 terms, so pass it only the 100 with the most results
+	// rather than every counted term, which for a large tag taxonomy can be thousands.
+	$term_ids = array_filter( $counts );
+	arsort( $term_ids );
+	$term_ids = array_slice( array_keys( $term_ids ), 0, 100 );
 
 	foreach ( $selected_terms as $slug ) {
 		$selected = get_term_by( 'slug', $slug, $taxonomy->name );
