@@ -14,11 +14,37 @@ Easy to use and lightweight, built using the WordPress Interactivity API.
 
 * Add a query block. This can anyhere that the query block is supported e.g. page, template, or pattern.
 * Add one of the filter blocks and configure as required:
-    * Taxonomy filter. Select which taxonomy to to use, customise the label (and whether it's shown), and customise the text used when none is selected. For a hierarchical taxonomy, choose how the tree is shown: a flat list (the default), nested beneath parents, or nested with each parent's children collapsed behind a toggle. Selecting a parent also matches posts in its children.
+    * Taxonomy filter. Select which taxonomy to to use, customise the label (and whether it's shown), and customise the text used when none is selected. For a hierarchical taxonomy, choose how the tree is shown: a flat list (the default), nested beneath parents, or nested with each parent's children collapsed behind a toggle. Selecting a parent also matches posts in its children. Optionally hide terms with no results, and show each term's result count (see below).
     * Post type filter. Customise the label (and whether it's shown), as well as the text used when no filter is applied.
     * Search block. No extra options.
  
 ![image](https://github.com/user-attachments/assets/e2f9b62d-91f7-4c22-87ac-078b4d031a60)
+
+### Result counts and hiding empty terms
+
+The taxonomy filter's **Terms** panel has two options, both off by default:
+
+* **Hide terms with no results** leaves out any term that no post in the current results has, taking the loop's own query, the other filters and any search into account. A term the visitor has selected is always shown, so the control can always undo its own state, and a filter left with no terms is not rendered at all. With this on, the stored term counts play no part: a term is shown or hidden by its count in the current results alone.
+* **Show result counts** adds the count after each term's name, for example `Cloud Security (12)`.
+
+Counts follow the way the filters combine. Filters on different taxonomies narrow each other, so a term's count reflects every other active filter. Terms selected within the same taxonomy match any of them, so a taxonomy's own selection is left out of its counts: a count shows how many results selecting that term would add, not how many it shares with the terms already selected. A parent term's count includes posts in its descendants, as selecting it does.
+
+Counts are calculated with one grouped query over the posts the loop would return, and are of published posts only, as an anonymous visitor would see them, so a signed-in user's private posts are not counted. They are cached in the object cache against the query for five minutes rather than cleared by every edit; change that with the `query_filter_term_counts_cache_expiry` filter.
+
+Counting in the database gets slow on very large sites (hundreds of thousands of posts), and counts within a search are slow at any size, because the search itself is. Large sites should supply counts from a search index's aggregations, such as Elasticsearch's, by returning them from the `query_filter_term_counts` filter:
+
+```php
+/**
+ * @param int[]|null $counts     Counts keyed by term ID, or null to calculate them.
+ * @param array      $query_vars WP_Query vars the terms are counted within: every filter
+ *                               but this one, fetching only IDs.
+ * @param string     $taxonomy   Taxonomy name.
+ * @param WP_Block   $block      The taxonomy filter block.
+ */
+add_filter( 'query_filter_term_counts', function ( $counts, $query_vars, $taxonomy, $block ) {
+	return $counts;
+}, 10, 4 );
+```
 
 ## Installation
 

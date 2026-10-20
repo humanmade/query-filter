@@ -23,6 +23,8 @@ export default function Edit( { attributes, setAttributes } ) {
 		includeTerms,
 		excludeTerms,
 		maxVisibleTerms,
+		hideEmpty,
+		showCount,
 		showAllLabel,
 	} = attributes;
 
@@ -323,6 +325,24 @@ export default function Edit( { attributes, setAttributes } ) {
 							__next40pxDefaultSize
 						/>
 					) }
+					<ToggleControl
+						label={ __( 'Hide terms with no results', 'query-filter' ) }
+						checked={ hideEmpty }
+						onChange={ ( value ) => setAttributes( { hideEmpty: value } ) }
+						help={ __(
+							'Leave out terms that no post in the current results has, taking the other filters and any search into account. Selected terms are always shown.',
+							'query-filter'
+						) }
+					/>
+					<ToggleControl
+						label={ __( 'Show result counts', 'query-filter' ) }
+						checked={ showCount }
+						onChange={ ( value ) => setAttributes( { showCount: value } ) }
+						help={ __(
+							'Show how many results each term would add to the current results.',
+							'query-filter'
+						) }
+					/>
 					<TextControl
 						label={ __(
 							'Terms shown before "show all"',
