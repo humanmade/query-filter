@@ -315,7 +315,7 @@ function get_filter_term_counts( \WP_Block $block, string $taxonomy ) : ?array {
 		return array_map( 'intval', $counts );
 	}
 
-	$cache_key = 'term-counts:' . md5( wp_json_encode( [ $query_vars, $taxonomy ] ) );
+	$cache_key = 'term-counts:' . md5( wp_json_encode( [ $query_vars, $taxonomy, get_request_filters( $query_vars ) ] ) );
 
 	$counts = wp_cache_get( $cache_key, CACHE_GROUP );
 
@@ -334,6 +334,36 @@ function get_filter_term_counts( \WP_Block $block, string $taxonomy ) : ?array {
 	}
 
 	return $counts;
+}
+
+/**
+ * The filters and search the request applies to a query with an ID of its own.
+ *
+ * pre_get_posts_transpose_query_vars() applies them only as such a query runs, so they
+ * are not yet in its vars. Anything keyed on the vars alone, like the term count cache,
+ * would otherwise give every combination of filters the counts of whichever came first.
+ * An inherited query's vars are taken from the main query after it has run, so they
+ * carry the filters already.
+ *
+ * @param array $query_vars Query vars, carrying `query_id` if the query has one.
+ * @return array Request parameters for the query, by name.
+ */
+function get_request_filters( array $query_vars ) : array {
+	if ( ! isset( $query_vars['query_id'] ) ) {
+		return [];
+	}
+
+	$prefix = "query-{$query_vars['query_id']}-";
+
+	// Read only to tell requests apart, never output or queried with.
+	// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+	$filters = array_filter( $_GET, fn ( $key ) => str_starts_with( (string) $key, $prefix ), ARRAY_FILTER_USE_KEY );
+
+	// The page changes which posts are shown, not which are counted.
+	unset( $filters[ "{$prefix}page" ] );
+	ksort( $filters );
+
+	return $filters;
 }
 
 /**
