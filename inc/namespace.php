@@ -698,6 +698,32 @@ function filter_block_type_metadata( array $metadata ) : array {
 }
 
 /**
+ * Name the URL parameter that sets a filter on a query.
+ *
+ * An inherited query is the main query, which reads `query-{key}`, with WordPress's own
+ * `s` and `page` for search and pagination. Any other query reads `query-{id}-{key}`,
+ * and its pagination is named as core's pagination block names it.
+ *
+ * Public so that controls outside a Query Loop, such as links built by a theme, can
+ * name the same parameters as the filter blocks inside it.
+ *
+ * @param string $key     Taxonomy name, `post_type`, `s` or `page`.
+ * @param array  $context Block context of the query: its `query` and `queryId`.
+ * @return string Parameter name.
+ */
+function get_query_param( string $key, array $context ) : string {
+	if ( ! empty( $context['query']['inherit'] ) ) {
+		return in_array( $key, [ 's', 'page' ], true ) ? $key : "query-{$key}";
+	}
+
+	if ( 'page' === $key ) {
+		return isset( $context['queryId'] ) ? "query-{$context['queryId']}-page" : 'query-page';
+	}
+
+	return sprintf( 'query-%d-%s', $context['queryId'] ?? 0, $key );
+}
+
+/**
  * Sanitize a search query value.
  *
  * sanitize_text_field() trims surrounding whitespace. We want to preserve that
@@ -749,26 +775,20 @@ function render_block_search( string $block_content, array $block, \WP_Block $in
 
 	wp_enqueue_script_module( 'query-filter-taxonomy-view-script-module' );
 
-	$inherit = ! empty( $instance->context['query']['inherit'] );
-
 	// An inherited query is the main query, and WordPress resolves that from
 	// its own `s`: a term only reaches the search template because `s` is what
 	// routing reads. Naming the field anything else leaves the field blank on
 	// arrival, and clearing it deletes a parameter the URL never carried, so
 	// the results never change. `query-s` is still transposed onto the main
 	// query for anything that already links to it.
-	$query_var = $inherit
-		? 's'
-		: sprintf( 'query-%d-s', $instance->context['queryId'] ?? 0 );
+	$query_var = get_query_param( 's', $instance->context );
 
 	// A search is a new set of results, so it belongs on the first page. Left
 	// in place, the page the visitor happened to be on is carried into the
 	// search and a term with fewer pages of matches than that renders empty.
 	// Named as core names it, so the parameter the pagination block wrote is
 	// the one that gets dropped.
-	$page_var = $inherit
-		? 'page'
-		: ( isset( $instance->context['queryId'] ) ? 'query-' . $instance->context['queryId'] . '-page' : 'query-page' );
+	$page_var = get_query_param( 'page', $instance->context );
 
 	$action = remove_query_arg( $page_var, add_query_arg( [ $query_var => '' ] ) );
 	$action = str_replace( '/page/' . get_query_var( 'paged', 1 ), '', $action );

@@ -22,15 +22,12 @@ $display_type = $attributes['displayType'] ?? 'select';
 $layout_direction = $attributes['layoutDirection'] ?? 'vertical';
 $hierarchy = \HM\Query_Loop_Filter\get_hierarchy_mode( $attributes, $taxonomy->name );
 
-if ( empty( $block->context['query']['inherit'] ) ) {
-	$query_id = $block->context['queryId'] ?? 0;
-	$query_var = sprintf( 'query-%d-%s', $query_id, $attributes['taxonomy'] );
-	$page_var = isset( $block->context['queryId'] ) ? 'query-' . $block->context['queryId'] . '-page' : 'query-page';
-	$base_url = remove_query_arg( [ $query_var, $page_var ] );
-} else {
-	$query_var = sprintf( 'query-%s', $attributes['taxonomy'] );
-	$page_var = 'page';
-	$base_url = str_replace( '/page/' . get_query_var( 'paged' ), '', remove_query_arg( [ $query_var, $page_var ] ) );
+$query_var = \HM\Query_Loop_Filter\get_query_param( $attributes['taxonomy'], $block->context );
+$page_var = \HM\Query_Loop_Filter\get_query_param( 'page', $block->context );
+$base_url = remove_query_arg( [ $query_var, $page_var ] );
+
+if ( ! empty( $block->context['query']['inherit'] ) ) {
+	$base_url = str_replace( '/page/' . get_query_var( 'paged' ), '', $base_url );
 }
 
 // Non-ASCII term slugs are stored URL-encoded (e.g. "%e6%97%a5"), but arrive from $_GET
