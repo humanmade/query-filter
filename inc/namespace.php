@@ -11,6 +11,19 @@ use WP_HTML_Tag_Processor;
 use WP_Query;
 
 /**
+ * Query var naming a taxonomy whose filter a query should leave out.
+ *
+ * Set on the queries that count a taxonomy filter's terms, which must narrow the posts by
+ * every filter except their own.
+ */
+const SKIP_TAXONOMY_VAR = 'query-filter-skip-taxonomy';
+
+/**
+ * Object cache group for term counts.
+ */
+const CACHE_GROUP = 'query-filter';
+
+/**
  * Connect namespace methods to hooks and filters.
  *
  * @return void
@@ -67,6 +80,7 @@ function pre_get_posts_transpose_query_vars( WP_Query $query ) : void {
 	}
 
 	$prefix = $query->is_main_query() ? 'query-' : "query-{$query_id}-";
+	$skip_taxonomy = (string) $query->get( SKIP_TAXONOMY_VAR );
 	$tax_query = [];
 	$valid_keys = [
 		'post_type' => $query->is_search() ? 'any' : 'post',
@@ -103,7 +117,7 @@ function pre_get_posts_transpose_query_vars( WP_Query $query ) : void {
 			// registered privately for internal bookkeeping. Filtering by those
 			// turns the front end into an oracle for private groupings, so only
 			// honour taxonomies that are publicly queryable in the first place.
-			if ( ! is_taxonomy_viewable( $key ) ) {
+			if ( ! is_taxonomy_viewable( $key ) || $key === $skip_taxonomy ) {
 				continue;
 			}
 
@@ -113,10 +127,12 @@ function pre_get_posts_transpose_query_vars( WP_Query $query ) : void {
 			// Handle multiple values separated by commas (for checkbox mode)
 			$values = wp_parse_list( $value );
 
+			// Clauses are keyed by taxonomy, so a term count can find and drop the
+			// filter's own clause from the query it counts within.
 			if ( count( $values ) > 1 ) {
 				// If multiple terms in a taxonomy are selected, posts with
 				// ANY of the selected terms should be returned.
-				$tax_query[] = [
+				$tax_query[ get_clause_key( $key ) ] = [
 					'taxonomy' => $key,
 					'terms' => $values,
 					'field' => 'slug',
@@ -124,7 +140,7 @@ function pre_get_posts_transpose_query_vars( WP_Query $query ) : void {
 				];
 			} else {
 				// Single value: normal behavior
-				$tax_query[] = [
+				$tax_query[ get_clause_key( $key ) ] = [
 					'taxonomy' => $key,
 					'terms' => $values,
 					'field' => 'slug',
@@ -191,10 +207,12 @@ function pre_get_posts_transpose_query_vars( WP_Query $query ) : void {
  * Terms are addressed by slug rather than ID so that curated lists stay
  * readable and reviewable in pattern markup.
  *
- * @param array $attributes Taxonomy filter block attributes.
+ * @param array      $attributes Taxonomy filter block attributes.
+ * @param int[]|null $term_ids   In derived mode, the only terms to consider: those with
+ *                               results in the filter's query. Null to consider all.
  * @return \WP_Term[] Terms to render, in display order.
  */
-function get_filter_terms( array $attributes ) : array {
+function get_filter_terms( array $attributes, ?array $term_ids = null ) : array {
 	$include = array_filter( (array) ( $attributes['includeTerms'] ?? [] ) );
 	$exclude = array_filter( (array) ( $attributes['excludeTerms'] ?? [] ) );
 
@@ -203,10 +221,21 @@ function get_filter_terms( array $attributes ) : array {
 		? array_values( array_unique( array_merge( $include, array_map( 'rawurlencode', $include ) ) ) )
 		: '';
 
+	// In derived mode a filter can be limited to terms already known to have results in
+	// its query, which then decides emptiness itself: the stored counts can lag behind
+	// the posts, and looking the terms up by ID keeps the lookup's cap from dropping any
+	// of them in favour of empty ones earlier in the alphabet.
+	$by_id = empty( $include ) && null !== $term_ids;
+
+	if ( $by_id && empty( $term_ids ) ) {
+		return [];
+	}
+
 	$terms = get_terms( [
 		'taxonomy' => $attributes['taxonomy'],
-		'hide_empty' => empty( $include ),
+		'hide_empty' => empty( $include ) && ! $by_id,
 		'slug' => $include_slugs,
+		'include' => $by_id ? array_map( 'intval', $term_ids ) : [],
 		'number' => 100,
 	] );
 
@@ -233,6 +262,337 @@ function get_filter_terms( array $attributes ) : array {
 	}
 
 	return $terms;
+}
+
+/**
+ * Key the transposed tax query gives a taxonomy filter's clause.
+ *
+ * @param string $taxonomy Taxonomy name.
+ * @return string Clause key.
+ */
+function get_clause_key( string $taxonomy ) : string {
+	return 'query-filter-' . $taxonomy;
+}
+
+/**
+ * Count the posts each term of a taxonomy filter would match in the current query.
+ *
+ * The count is taken within the posts the filter's query returns, narrowed by every
+ * other filter but not by this one: selections within a taxonomy combine with OR, so a
+ * term's count is what selecting it would add, not what it shares with the selection
+ * already made. A parent term counts its descendants' posts too, as selecting it would.
+ *
+ * Counts are of published posts only, as an anonymous visitor would see them, so every
+ * visitor shares them. They are cached against the query for a few minutes rather than
+ * cleared by every content change: on a busy site any post save would otherwise clear
+ * them all, and facet counts a few minutes old are fine. The `query_filter_term_counts`
+ * filter can supply counts from elsewhere, such as a search index's aggregations.
+ *
+ * @param \WP_Block $block    Taxonomy filter block, carrying its query context.
+ * @param string    $taxonomy Taxonomy name.
+ * @return int[]|null Counts keyed by term ID, or null when the query cannot be resolved.
+ */
+function get_filter_term_counts( \WP_Block $block, string $taxonomy ) : ?array {
+	$query_vars = get_count_query_vars( $block, $taxonomy );
+
+	if ( null === $query_vars ) {
+		return null;
+	}
+
+	/**
+	 * Filters a taxonomy filter's term counts before they are calculated.
+	 *
+	 * Return an array of counts keyed by term ID to use them instead.
+	 *
+	 * @param int[]|null $counts     Counts, or null to calculate them.
+	 * @param array      $query_vars Query the terms are counted within.
+	 * @param string     $taxonomy   Taxonomy name.
+	 * @param \WP_Block  $block      Taxonomy filter block.
+	 */
+	$counts = apply_filters( 'query_filter_term_counts', null, $query_vars, $taxonomy, $block );
+
+	if ( is_array( $counts ) ) {
+		return array_map( 'intval', $counts );
+	}
+
+	$cache_key = 'term-counts:' . md5( wp_json_encode( [ $query_vars, $taxonomy, get_request_filters( $query_vars ) ] ) );
+
+	$counts = wp_cache_get( $cache_key, CACHE_GROUP );
+
+	if ( ! is_array( $counts ) ) {
+		$counts = count_terms_in_query( $query_vars, $taxonomy );
+
+		/**
+		 * Filters how long a taxonomy filter's term counts are cached.
+		 *
+		 * @param int    $expiry   Seconds to cache the counts for.
+		 * @param string $taxonomy Taxonomy name.
+		 */
+		$expiry = (int) apply_filters( 'query_filter_term_counts_cache_expiry', 5 * MINUTE_IN_SECONDS, $taxonomy );
+
+		wp_cache_set( $cache_key, $counts, CACHE_GROUP, $expiry );
+	}
+
+	return $counts;
+}
+
+/**
+ * The filters and search the request applies to a query with an ID of its own.
+ *
+ * pre_get_posts_transpose_query_vars() applies them only as such a query runs, so they
+ * are not yet in its vars. Anything keyed on the vars alone, like the term count cache,
+ * would otherwise give every combination of filters the counts of whichever came first.
+ * An inherited query's vars are taken from the main query after it has run, so they
+ * carry the filters already.
+ *
+ * @param array $query_vars Query vars, carrying `query_id` if the query has one.
+ * @return array Request parameters for the query, by name.
+ */
+function get_request_filters( array $query_vars ) : array {
+	if ( ! isset( $query_vars['query_id'] ) ) {
+		return [];
+	}
+
+	$prefix = "query-{$query_vars['query_id']}-";
+
+	// Read only to tell requests apart, never output or queried with.
+	// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+	$filters = array_filter( $_GET, fn ( $key ) => str_starts_with( (string) $key, $prefix ), ARRAY_FILTER_USE_KEY );
+
+	// The page changes which posts are shown, not which are counted.
+	unset( $filters[ "{$prefix}page" ] );
+	ksort( $filters );
+
+	return $filters;
+}
+
+/**
+ * Build the query a taxonomy filter's terms are counted within.
+ *
+ * For an inherited loop that is the main query as it ran, with the filter's own clause
+ * taken out of its tax query. For a loop of its own, it is the loop's query rebuilt from
+ * the block context, which the filters are applied to again as it runs, less this one.
+ * Either way it is unpaged and unordered: only its JOIN and WHERE clauses are used, in
+ * the count, and it is not run on its own.
+ *
+ * @param \WP_Block $block    Taxonomy filter block, carrying its query context.
+ * @param string    $taxonomy Taxonomy name.
+ * @return array|null Query vars, or null when the query cannot be resolved.
+ */
+function get_count_query_vars( \WP_Block $block, string $taxonomy ) : ?array {
+	if ( ! empty( $block->context['query']['inherit'] ) ) {
+		global $wp_query;
+
+		if ( ! $wp_query instanceof WP_Query ) {
+			return null;
+		}
+
+		$query_vars = $wp_query->query_vars;
+
+		// The main query chose its post type before the filters added its tax query.
+		// Pin that choice so the count query cannot infer the filtered taxonomies' types.
+		if ( empty( $query_vars['post_type'] ) && ! $wp_query->is_search() ) {
+			$query_vars['post_type'] = 'post';
+
+			if ( $wp_query->is_tax() ) {
+				$taxonomies = array_keys( $wp_query->tax_query->queried_terms );
+				$query_vars['post_type'] = array_values( array_filter(
+					get_post_types( [ 'exclude_from_search' => false ] ),
+					fn ( $type ) => (bool) array_intersect( $taxonomies, 'attachment' === $type ? get_taxonomies_for_attachments() : get_object_taxonomies( $type ) )
+				) );
+			}
+		}
+
+		// Once it has run, WP_Query writes the first term it queried back into these vars
+		// for code that still reads them. Copied into another query they become a clause
+		// of their own, narrowing every count to that one term, so they are left out
+		// unless the request itself asked for them.
+		foreach ( [ 'taxonomy', 'term', 'term_id', 'cat', 'category_name', 'tag_id' ] as $var ) {
+			if ( ! isset( $wp_query->query[ $var ] ) ) {
+				unset( $query_vars[ $var ] );
+			}
+		}
+
+		if ( ! empty( $query_vars['tax_query'] ) && is_array( $query_vars['tax_query'] ) ) {
+			$query_vars['tax_query'] = remove_tax_clause( $query_vars['tax_query'], get_clause_key( $taxonomy ) );
+		}
+	} elseif ( isset( $block->context['query'] ) ) {
+		$query_vars = build_query_vars_from_query_block( $block, 1 );
+
+		/** This filter is documented in wp-includes/blocks.php */
+		$query_vars = apply_filters( 'query_loop_block_query_vars', $query_vars, $block, 1 );
+		$query_vars[ SKIP_TAXONOMY_VAR ] = $taxonomy;
+	} else {
+		return null;
+	}
+
+	return array_merge( $query_vars, [
+		'fields' => 'ids',
+		'posts_per_page' => -1,
+		'nopaging' => true,
+		'paged' => 0,
+		'offset' => 0,
+		'orderby' => 'none',
+		'no_found_rows' => true,
+		'ignore_sticky_posts' => true,
+		'cache_results' => false,
+		'update_post_meta_cache' => false,
+		'update_post_term_cache' => false,
+	] );
+}
+
+/**
+ * Remove a keyed clause from a tax query, at whatever depth it was nested.
+ *
+ * @param array  $tax_query Tax query.
+ * @param string $key       Clause key.
+ * @return array Tax query without the clause.
+ */
+function remove_tax_clause( array $tax_query, string $key ) : array {
+	unset( $tax_query[ $key ] );
+
+	foreach ( $tax_query as $index => $clause ) {
+		if ( is_array( $clause ) && ! isset( $clause['taxonomy'] ) ) {
+			$tax_query[ $index ] = remove_tax_clause( $clause, $key );
+		}
+	}
+
+	return $tax_query;
+}
+
+/**
+ * Count the posts a query returns for each term of a taxonomy.
+ *
+ * The count is one flat, grouped query built from the query's own clauses, so every
+ * filter on them still applies, and no post IDs come back to PHP. It starts from the
+ * posts table: left to choose, the database starts from the term relationships instead
+ * and reads every post they hold, which is far slower on a large site. A parent's count
+ * is of the distinct posts across its whole branch, which cannot be summed from its
+ * children's, so a hierarchical taxonomy's terms are joined to a map of each term to
+ * itself and its ancestors, and grouped by ancestor.
+ *
+ * @param array  $query_vars Query to count within.
+ * @param string $taxonomy   Taxonomy name.
+ * @return int[] Counts keyed by term ID; terms with no posts are absent.
+ */
+function count_terms_in_query( array $query_vars, string $taxonomy ) : array {
+	global $wpdb;
+
+	$clauses = get_query_clauses( $query_vars );
+
+	if ( null === $clauses ) {
+		return [];
+	}
+
+	$join = $clauses['join'] . $wpdb->prepare(
+		" INNER JOIN {$wpdb->term_relationships} qf_tr ON qf_tr.object_id = {$wpdb->posts}.ID
+		INNER JOIN {$wpdb->term_taxonomy} qf_tt ON qf_tt.term_taxonomy_id = qf_tr.term_taxonomy_id AND qf_tt.taxonomy = %s",
+		$taxonomy
+	);
+	$group = 'qf_tt.term_id';
+
+	$pairs = get_term_ancestor_pairs( $taxonomy );
+
+	if ( ! empty( $pairs ) ) {
+		// A derived table rather than a temporary one, which needs a grant not every
+		// database user has.
+		$map = implode( ' UNION ALL ', array_map(
+			fn ( array $pair ) => sprintf( 'SELECT %d AS term_id, %d AS ancestor_id', $pair[0], $pair[1] ),
+			$pairs
+		) );
+		$join .= " INNER JOIN ( {$map} ) qf_map ON qf_map.term_id = qf_tt.term_id";
+		$group = 'qf_map.ancestor_id';
+	}
+
+	// JOIN and WHERE were built and escaped by WP_Query, and preparing them again would
+	// mangle the escaped patterns of a search. The rest is prepared above, or integers.
+	$sql = "{$group} AS term_id, COUNT( DISTINCT {$wpdb->posts}.ID ) AS posts FROM {$wpdb->posts} {$join} WHERE 1=1 {$clauses['where']} GROUP BY {$group}";
+
+	// STRAIGHT_JOIN holds MySQL and MariaDB to the posts-first order. A database that
+	// does not know it, such as SQLite, runs the count without it.
+	$suppress = $wpdb->suppress_errors();
+	// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery -- See above; the tally is cached by the caller.
+	$rows = $wpdb->get_results( 'SELECT STRAIGHT_JOIN ' . $sql );
+	$wpdb->suppress_errors( $suppress );
+
+	if ( '' !== $wpdb->last_error ) {
+		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery -- See above.
+		$rows = $wpdb->get_results( 'SELECT ' . $sql );
+	}
+
+	return array_map( 'intval', wp_list_pluck( (array) $rows, 'posts', 'term_id' ) );
+}
+
+/**
+ * Build the JOIN and WHERE clauses a query would run, without running it.
+ *
+ * The query goes through WP_Query as any other would, so every filter on its vars and
+ * clauses applies, and is stopped just before it reaches the database. It is built for
+ * an anonymous visitor, so that it holds published posts only and its counts can be
+ * shared by everyone.
+ *
+ * @param array $query_vars Query vars.
+ * @return array|null Clauses, keyed as `posts_clauses_request` passes them, or null.
+ */
+function get_query_clauses( array $query_vars ) : ?array {
+	$query = new WP_Query();
+	$clauses = null;
+
+	$capture = function ( array $pieces, WP_Query $running ) use ( $query, &$clauses ) : array {
+		if ( $running === $query ) {
+			$clauses = $pieces;
+		}
+
+		return $pieces;
+	};
+	$short_circuit = fn ( $posts, WP_Query $running ) => $running === $query ? [] : $posts;
+
+	$user_id = get_current_user_id();
+	wp_set_current_user( 0 );
+
+	add_filter( 'posts_clauses_request', $capture, PHP_INT_MAX, 2 );
+	add_filter( 'posts_pre_query', $short_circuit, PHP_INT_MAX, 2 );
+	$query->query( $query_vars );
+	remove_filter( 'posts_pre_query', $short_circuit, PHP_INT_MAX );
+	remove_filter( 'posts_clauses_request', $capture, PHP_INT_MAX );
+
+	wp_set_current_user( $user_id );
+
+	return $clauses;
+}
+
+/**
+ * Pair each term of a hierarchical taxonomy with itself and with each of its ancestors.
+ *
+ * @param string $taxonomy Taxonomy name.
+ * @return int[][] Pairs of `[ term ID, ancestor term ID ]`; empty for a flat taxonomy.
+ */
+function get_term_ancestor_pairs( string $taxonomy ) : array {
+	if ( ! is_taxonomy_hierarchical( $taxonomy ) ) {
+		return [];
+	}
+
+	$parents = get_terms( [
+		'taxonomy' => $taxonomy,
+		'hide_empty' => false,
+		'fields' => 'id=>parent',
+	] );
+
+	if ( is_wp_error( $parents ) ) {
+		return [];
+	}
+
+	$pairs = [];
+
+	foreach ( array_keys( $parents ) as $term_id ) {
+		// The guard against revisiting an ancestor stops a corrupt, looping hierarchy.
+		for ( $ancestor_id = $term_id, $seen = []; $ancestor_id && ! isset( $seen[ $ancestor_id ] ); $ancestor_id = (int) ( $parents[ $ancestor_id ] ?? 0 ) ) {
+			$seen[ $ancestor_id ] = true;
+			$pairs[] = [ (int) $term_id, (int) $ancestor_id ];
+		}
+	}
+
+	return $pairs;
 }
 
 /**
