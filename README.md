@@ -46,6 +46,20 @@ add_filter( 'query_filter_term_counts', function ( $counts, $query_vars, $taxono
 }, 10, 4 );
 ```
 
+### Linking to filtered results
+
+Each filter is a URL parameter, so a link elsewhere on the page — outside the Query Loop, in a hero or a menu — can apply one. The parameter's name depends on the loop: `query-{taxonomy}` for a loop that inherits the main query, `query-{id}-{taxonomy}` for one with its own. Rather than build it by hand, ask for it with the loop's block context:
+
+```php
+// "query-12-category", or "query-category" if the loop inherits its query.
+$param = HM\Query_Loop_Filter\get_query_param( 'category', [
+	'query'   => [ 'inherit' => false ],
+	'queryId' => 12,
+] );
+```
+
+The key is a taxonomy name, `post_type`, `s` for the search or `page` for pagination.
+
 ## Installation
 
 ### Using Composer
