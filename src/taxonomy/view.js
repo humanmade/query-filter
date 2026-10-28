@@ -17,14 +17,38 @@ import {
  */
 const NAVIGATION_TIMEOUT = 30000;
 
-const updateURL = async ( action, value, name ) => {
-	const url = new URL( action );
+/**
+ * Build the URL for a search from the page being viewed.
+ *
+ * The form's action is not used: other plugins filter search form actions
+ * (Polylang points them at the language's home page), and the URL may have
+ * moved on through client-side navigation since the form was rendered.
+ *
+ * @param {string}      name      Search parameter.
+ * @param {string}      value     Search term.
+ * @param {string|null} pageParam The query's page parameter, or null when it
+ *                                inherits the main query and pages by path.
+ * @return {Promise<void>} Resolves once navigated.
+ */
+const updateURL = async ( name, value, pageParam ) => {
+	const { actions } = await import( '@wordpress/interactivity-router' );
+	const { state: routerState } = store( 'core/router' );
+	const url = new URL( routerState?.url || window.location.href );
+
+	// A search is a new set of results, so it starts on the first page.
+	if ( pageParam ) {
+		url.searchParams.delete( pageParam );
+	} else {
+		url.searchParams.delete( 'paged' );
+		url.pathname = url.pathname.replace( /\/page\/\d+\/?$/, '/' );
+	}
+
 	if ( value || name === 's' ) {
 		url.searchParams.set( name, value );
 	} else {
 		url.searchParams.delete( name );
 	}
-	const { actions } = await import( '@wordpress/interactivity-router' );
+
 	await actions.navigate( url.toString(), { timeout: NAVIGATION_TIMEOUT } );
 };
 
@@ -52,24 +76,18 @@ store( 'query-filter', {
 			// Scope search to block context so multiple searchable query loops may coexist.
 			const context = getContext();
 			const { ref } = getElement();
-			let action, name, value;
-			if ( ref.tagName === 'FORM' ) {
-				const input = ref.querySelector( 'input[type="search"]' );
-				action = ref.action;
-				name = input.name;
-				value = input.value;
-			} else {
-				action = ref.closest( 'form' ).action;
-				name = ref.name;
-				value = ref.value;
-			}
+			const input =
+				ref.tagName === 'FORM'
+					? ref.querySelector( 'input[type="search"]' )
+					: ref;
+			const { name, value } = input;
 
 			// Don't navigate if the search didn't really change.
 			if ( value === context.searchValue ) return;
 
 			context.searchValue = value;
 
-			yield updateURL( action, value, name );
+			yield updateURL( name, value, context.pageParam );
 		} ),
 	},
 } );
