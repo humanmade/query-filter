@@ -38,6 +38,24 @@ function hijack_search_action( string $block_content ) : string {
 	return preg_replace( '#action="[^"]*"#', 'action="' . esc_url( home_url( '/' ) ) . '"', $block_content );
 }
 
+add_action( 'pre_get_posts', __NAMESPACE__ . '\\set_main_query_page_size' );
+
+/**
+ * Shrink the main query's page size when asked to, so a few fixtures span several pages.
+ *
+ * @param \WP_Query $query Query being prepared.
+ * @return void
+ */
+function set_main_query_page_size( \WP_Query $query ) : void {
+	// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+	if ( ! $query->is_main_query() || empty( $_GET['qf_per_page'] ) ) {
+		return;
+	}
+
+	// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+	$query->set( 'posts_per_page', absint( $_GET['qf_per_page'] ) );
+}
+
 /**
  * Register the test post types and taxonomies.
  *

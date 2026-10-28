@@ -53,6 +53,22 @@ test.describe( 'Search action ownership', () => {
 			form.locator( 'input[type="hidden"][name="query-5-s"]' )
 		).toHaveCount( 0 );
 	} );
+
+	test( 'an inherited loop does not carry its page as a hidden input', async ( {
+		page,
+	} ) => {
+		// An inherited loop pages with `paged`, which is how its links read on plain
+		// permalinks. One post per page puts page 2 in range.
+		await page.goto( '/?s=&paged=2&qf_per_page=1' );
+
+		const form = page.locator( '.wp-block-query form.wp-block-search' );
+		await expect(
+			form.locator( 'input[type="hidden"][name="qf_per_page"]' )
+		).toHaveValue( '1' );
+		await expect(
+			form.locator( 'input[type="hidden"][name="paged"]' )
+		).toHaveCount( 0 );
+	} );
 } );
 
 test.describe( 'Search without JavaScript', () => {
@@ -72,5 +88,18 @@ test.describe( 'Search without JavaScript', () => {
 		await page.waitForURL( /query-3-s=One/ );
 		expect( page.url() ).toContain( 'query-3-post_type=qf_doc' );
 		await loop.expectTitles( [ 'Doc One' ] );
+	} );
+
+	test( 'a search from a later page of an inherited loop starts on page 1', async ( {
+		page,
+	} ) => {
+		await page.goto( '/?s=&paged=2&qf_per_page=1' );
+
+		const input = page.locator( '.wp-block-query .wp-block-search__input' );
+		await input.fill( 'Alpha' );
+		await input.press( 'Enter' );
+
+		await page.waitForURL( /[?&]s=Alpha/ );
+		expect( new URL( page.url() ).searchParams.has( 'paged' ) ).toBe( false );
 	} );
 } );

@@ -815,7 +815,13 @@ function render_block_search( string $block_content, array $block, \WP_Block $in
 	$block_content->set_attribute( 'data-wp-bind--value', 'context.searchValue' );
 	$block_content->set_attribute( 'data-wp-on--input', 'actions.search' );
 
-	return add_filter_hidden_inputs( (string) $block_content, [ $query_var, $page_var ] );
+	$exclude = [ $query_var, $page_var ];
+	if ( ! empty( $instance->context['query']['inherit'] ) ) {
+		// Core pages an inherited loop with `paged` (`?paged=N` on plain permalinks), not `page`.
+		$exclude[] = 'paged';
+	}
+
+	return add_filter_hidden_inputs( (string) $block_content, $exclude );
 }
 
 /**
