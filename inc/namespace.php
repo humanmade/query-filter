@@ -36,7 +36,10 @@ function bootstrap() : void {
 	add_action( 'init', __NAMESPACE__ . '\\register_blocks' );
 
 	// Search.
-	add_filter( 'render_block_core/search', __NAMESPACE__ . '\\render_block_search', 10, 3 );
+	// Late, so a search block inside a Query Loop posts back to the loop even when
+	// another plugin rewrites search form actions at the default priority (as
+	// Polylang does, pointing every search form at the language's home page).
+	add_filter( 'render_block_core/search', __NAMESPACE__ . '\\render_block_search', 20, 3 );
 
 	// Query.
 	add_filter( 'render_block_core/query', __NAMESPACE__ . '\\render_block_query', 10, 3 );
@@ -801,7 +804,10 @@ function render_block_search( string $block_content, array $block, \WP_Block $in
 	$block_content->set_attribute( 'data-wp-interactive', 'query-filter' );
 	$block_content->set_attribute( 'data-wp-on--submit', 'actions.search' );
 	// Scope search to block context so multiple searchable query loops may coexist.
-	$block_content->set_attribute( 'data-wp-context', wp_json_encode( [ 'searchValue' => $search_value ] ) );
+	$block_content->set_attribute( 'data-wp-context', wp_json_encode( [
+		'searchValue' => $search_value,
+		'pageParam' => empty( $instance->context['query']['inherit'] ) ? $page_var : null,
+	] ) );
 	$block_content->next_tag( [ 'tag_name' => 'input', 'class_name' => 'wp-block-search__input' ] );
 	$block_content->set_attribute( 'name', $query_var );
 	$block_content->set_attribute( 'inputmode', 'search' );
@@ -809,7 +815,41 @@ function render_block_search( string $block_content, array $block, \WP_Block $in
 	$block_content->set_attribute( 'data-wp-bind--value', 'context.searchValue' );
 	$block_content->set_attribute( 'data-wp-on--input', 'actions.search' );
 
-	return (string) $block_content;
+	return add_filter_hidden_inputs( (string) $block_content, [ $query_var, $page_var ] );
+}
+
+/**
+ * Carry the request's other parameters through a search form submitted without JavaScript.
+ *
+ * A GET form replaces the query string of its action with its own fields, so the
+ * filters already applied would otherwise be lost when the search is submitted.
+ *
+ * @param string   $block_content Search block markup.
+ * @param string[] $exclude       Parameters the form sets or resets itself.
+ * @return string Search block markup with a hidden input per carried parameter.
+ */
+function add_filter_hidden_inputs( string $block_content, array $exclude ) : string {
+	$inputs = '';
+
+	// Only echoed back, escaped, as the current URL already is in the form action.
+	// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+	foreach ( wp_unslash( $_GET ) as $key => $value ) {
+		if ( in_array( (string) $key, $exclude, true ) || ! is_scalar( $value ) ) {
+			continue;
+		}
+
+		$inputs .= sprintf(
+			'<input type="hidden" name="%s" value="%s" />',
+			esc_attr( (string) $key ),
+			esc_attr( sanitize_text_field( (string) $value ) )
+		);
+	}
+
+	if ( $inputs === '' ) {
+		return $block_content;
+	}
+
+	return preg_replace( '#</form>#i', $inputs . '</form>', $block_content, 1 );
 }
 
 /**

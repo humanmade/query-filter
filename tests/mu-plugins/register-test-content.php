@@ -14,6 +14,29 @@ namespace HM\Query_Loop_Filter\Tests;
 add_action( 'init', __NAMESPACE__ . '\\register_test_content' );
 add_filter( 'get_block_templates', __NAMESPACE__ . '\\replace_search_template', 10, 2 );
 add_filter( 'get_block_templates', __NAMESPACE__ . '\\replace_archive_template', 10, 2 );
+// Added once plugins have loaded, so it runs after this plugin's filter would at
+// the same priority, as Polylang's does.
+add_action( 'plugins_loaded', function () {
+	add_filter( 'render_block_core/search', __NAMESPACE__ . '\\hijack_search_action', 10 );
+} );
+
+/**
+ * Point every search form at the home page, as Polylang does, when asked to.
+ *
+ * Registered at the default priority, as Polylang's own filter is, so the tests
+ * can prove the plugin still owns the action of a search inside a Query Loop.
+ *
+ * @param string $block_content Search block markup.
+ * @return string Search block markup.
+ */
+function hijack_search_action( string $block_content ) : string {
+	// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+	if ( empty( $_GET['qf_hijack'] ) ) {
+		return $block_content;
+	}
+
+	return preg_replace( '#action="[^"]*"#', 'action="' . esc_url( home_url( '/' ) ) . '"', $block_content );
+}
 
 /**
  * Register the test post types and taxonomies.
