@@ -819,7 +819,7 @@ function render_block_search( string $block_content, array $block, \WP_Block $in
 }
 
 /**
- * Carry the request's other parameters through a search form submitted without JavaScript.
+ * Add hidden inputs for the current query params so they still work in non-JS search submissions.
  *
  * A GET form replaces the query string of its action with its own fields, so the
  * filters already applied would otherwise be lost when the search is submitted.
