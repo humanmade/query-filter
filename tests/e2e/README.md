@@ -58,6 +58,7 @@ Seeding is idempotent, guarded by the `query_filter_e2e_seeded` option.
 | `/taxonomy-hierarchy-collapsed/` | 8 | Taxonomy filter (checkboxes, `hierarchy: collapsed`) over `qf_topic` |
 | `/taxonomy-hierarchy-select/` | 9 | Taxonomy filter (select, `hierarchy: nested`) over `qf_topic` |
 | `/term-counts/` | 10 | Category and `qf_topic` filters (checkboxes, `hideEmpty` and `showCount`) and a core search block |
+| `/enhanced-pagination/` | 15 | Taxonomy filter (select) and enhanced pagination, one post to a page |
 
 Posts: `Alpha One` and `Alpha Two` in the `alpha` category, `Beta One` in
 `beta`, and `Unfiled Post` in neither — so an active filter is always

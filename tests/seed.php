@@ -355,6 +355,28 @@ seed_post( 'Term Counts Private', 'page', [
 HTML,
 ] );
 
+// Page 15: enhanced pagination, one post to a page, with a taxonomy filter.
+// Core puts the loop wrapper in the `core/query` namespace and the plugin
+// must leave it there to avoid breaking core pagination directives (#72).
+seed_post( 'Enhanced Pagination', 'page', [
+	'post_name' => 'enhanced-pagination',
+	'post_content' => <<<HTML
+<!-- wp:query {"queryId":15,"enhancedPagination":true,"query":{"perPage":1,"pages":0,"offset":0,"postType":"post","order":"asc","orderBy":"title","inherit":false}} -->
+<div class="wp-block-query">
+<!-- wp:query-filter/taxonomy {"taxonomy":"category"} /-->
+<!-- wp:post-template -->
+<!-- wp:post-title /-->
+<!-- /wp:post-template -->
+<!-- wp:query-pagination -->
+<!-- wp:query-pagination-previous /-->
+<!-- wp:query-pagination-numbers /-->
+<!-- wp:query-pagination-next /-->
+<!-- /wp:query-pagination -->
+</div>
+<!-- /wp:query -->
+HTML,
+] );
+
 update_option( 'query_filter_e2e_seeded', 1 );
 
 echo "Seeded query filter e2e fixtures.\n";
