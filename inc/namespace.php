@@ -869,8 +869,14 @@ function render_block_query( $block_content, $block ) {
 	$block_content = new WP_HTML_Tag_Processor( $block_content );
 	$block_content->next_tag();
 
+	// With enhanced pagination on, core sets `data-wp-interactive="core/query"`
+	// here and its pagination directives read context from that namespace.
+	// Replacing it breaks them, so only set ours when core set none.
+	if ( null === $block_content->get_attribute( 'data-wp-interactive' ) ) {
+		$block_content->set_attribute( 'data-wp-interactive', 'query-filter' );
+	}
+
 	// Always allow region updates on interactivity, use standard core region naming.
-	$block_content->set_attribute( 'data-wp-interactive', 'query-filter' );
 	$block_content->set_attribute( 'data-wp-router-region', 'query-' . ( $block['attrs']['queryId'] ?? 0 ) );
 
 	return (string) $block_content;
