@@ -33,7 +33,14 @@ const NAVIGATION_TIMEOUT = 30000;
 const updateURL = async ( name, value, pageParam ) => {
 	const { actions } = await import( '@wordpress/interactivity-router' );
 	const { state: routerState } = store( 'core/router' );
-	const url = new URL( routerState?.url || window.location.href );
+
+	// The router keeps the URL it last navigated to as it was given, and a
+	// filter navigates to its option's value, which is a relative URL. Resolve
+	// it against the page so `new URL()` does not throw.
+	const url = new URL(
+		routerState?.url || window.location.href,
+		window.location.href
+	);
 
 	// A search is a new set of results, so it starts on the first page.
 	if ( pageParam ) {
