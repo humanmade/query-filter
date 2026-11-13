@@ -33,6 +33,28 @@ test.describe( 'Search filter', () => {
 		);
 	} );
 
+	test( 'a search after a filter narrows the filtered results', async ( {
+		page,
+		loop,
+	} ) => {
+		// The filter navigates client-side to a relative URL, which the router
+		// then holds as the current URL the search builds on.
+		await page.goto( '/term-counts/' );
+		await page
+			.locator( 'label', { hasText: 'Alpha' } )
+			.locator( 'input' )
+			.check();
+
+		await page.waitForURL( /query-10-category=alpha/ );
+		await loop.expectTitles( POSTS.alpha );
+
+		await page.locator( '.wp-block-search__input' ).fill( 'Two' );
+
+		await page.waitForURL( /query-10-s=Two/ );
+		expect( page.url() ).toContain( 'query-10-category=alpha' );
+		await loop.expectTitles( [ 'Alpha Two' ] );
+	} );
+
 	test( 'searching from a later page starts the results over', async ( {
 		page,
 		loop,
