@@ -18,6 +18,19 @@ import {
 const NAVIGATION_TIMEOUT = 30000;
 
 /**
+ * How long typing must pause before a search navigates, in milliseconds.
+ */
+const SEARCH_DELAY = 300;
+
+/**
+ * The latest search started from each search input.
+ *
+ * Every keystroke and submission replaces the entry, so a search that waits
+ * for typing to pause can tell when a newer search has replaced it.
+ */
+const latestSearches = new WeakMap();
+
+/**
  * Build the URL for a search from the page being viewed.
  *
  * The form's action is not used: other plugins filter search form actions
@@ -73,17 +86,36 @@ store( 'query-filter', {
 		},
 		search: withSyncEvent( function* ( e ) {
 			e.preventDefault();
-			// Scope search to block context so multiple searchable query loops may coexist.
-			const context = getContext();
 			const { ref } = getElement();
 			const input =
 				ref.tagName === 'FORM'
 					? ref.querySelector( 'input[type="search"]' )
 					: ref;
+
+			const search = {};
+			latestSearches.set( input, search );
+
+			// Typing searches once the visitor pauses. A submission searches
+			// at once and cancels a search that still waits.
+			if ( e.type === 'input' ) {
+				yield new Promise( ( resolve ) =>
+					setTimeout( resolve, SEARCH_DELAY )
+				);
+
+				if ( latestSearches.get( input ) !== search ) {
+					return;
+				}
+			}
+
+			// Scope search to block context so multiple searchable query loops may coexist.
+			// The generator restores the directive scope after each yield.
+			const context = getContext();
 			const { name, value } = input;
 
 			// Don't navigate if the search didn't really change.
-			if ( value === context.searchValue ) return;
+			if ( value === context.searchValue ) {
+				return;
+			}
 
 			context.searchValue = value;
 
